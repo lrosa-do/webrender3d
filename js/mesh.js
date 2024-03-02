@@ -37,13 +37,13 @@ const FLAG19 = 0x40000; // 262144
 const FLAG20 = 0x80000; // 524288
 
 
-const POSITION  = 0x0000;
-const COLOR    = 0x0001;
-const NORMAL   = 0x0002;
-const TEXTURE0 = 0x0003;
-const TEXTURE1 = 0x0004;
-const TANGENT  = 0x0005;
-const BITANGENT= 0x0006;
+const POSITION  = 0x0001;
+const COLOR     = 0x0002;
+const NORMAL    = 0x0004;
+const TEXTURE0  = 0x0008;
+const TEXTURE1  = 0x0010;
+const TANGENT   = 0x0020;
+const BITANGENT = 0x0040;
 
 
 
@@ -91,9 +91,6 @@ class Surface
     constructor(attributes, dynamic=false)
     {
         this.vertices   = [];
-        this.normals    = [];
-        this.texcoord0  = [];
-        this.colors     = [];
         this.indices    = [];
         this.dynamic    = dynamic;
         this.attributes = attributes;
@@ -134,23 +131,28 @@ class Surface
                 if (attribute === POSITION)
                 {
                     gl.vertexAttribPointer(index, 3, gl.FLOAT, false, 0, 0);
+    
                     offset += 3;
                 } else
                 if (attribute === NORMAL)
                 {
                     gl.vertexAttribPointer(index, 3, gl.FLOAT, false, 0, 0);
+
                     this.data |= NORMAL;     
+                    this.normals    = [];
                     offset += 3;
                 } else
                 if (attribute === COLOR)
                 {
                     gl.vertexAttribPointer(index, 4, gl.FLOAT, false, 0, 0);
+                    this.colors     = [];
                     this.data  |= COLOR;
                     offset += 4;
                 } else
                 if (attribute === TEXTURE0)
                 {
                     gl.vertexAttribPointer(index, 2, gl.FLOAT, false, 0, 0);
+                    this.texcoord0  = [];
                     this.data |= TEXTURE0;
 
                     offset += 2;
@@ -290,29 +292,51 @@ class Surface
         this.vertices.push(x);
         this.vertices.push(y);
         this.vertices.push(z);
-
-        this.normals.push(0);
-        this.normals.push(0);
-        this.normals.push(0);
-
-        this.colors.push(1);
-        this.colors.push(1);
-        this.colors.push(1);
-        this.colors.push(1);
-
-        this.texcoord0.push(u);
-        this.texcoord0.push(v);
-
         this.flags |= VBOVERTEX;
-        this.flags |= VBONORMAL;
-        this.flags |= VBOCOLOR;
-        this.flags |= VBOTEXTURE0;
+
+        if (this.data & NORMAL)
+        {
+                this.normals.push(0);
+                this.normals.push(0);
+                this.normals.push(0);
+                this.flags |= VBONORMAL;
+        }
+
+        if (this.data & COLOR)
+        {
+                this.colors.push(1);
+                this.colors.push(1);
+                this.colors.push(1);
+                this.colors.push(1);
+                this.flags |= VBOCOLOR;
+        }
+
+        if (this.data & TEXTURE0)
+        {
+            this.texcoord0.push(u);
+            this.texcoord0.push(v);
+            this.flags |= VBOTEXTURE0;
+        }
+
+        if (this.data & TEXTURE1)
+        {
+            this.texcoord1.push(u);
+            this.texcoord1.push(v);
+            this.flags |= VBOTEXTURE1;
+        }
+            
+
+ 
+   
+   
+  
 
         return this.no_verts - 1;
     }
     
     VertexNormal(index, x, y, z)
     {
+        if (this.data & NORMAL === 0) return;
         this.normals[index*3] = x;
         this.normals[index*3+1] = y;
         this.normals[index*3+2] = z;
@@ -321,6 +345,7 @@ class Surface
 
     VertexColor(index, r, g, b, a)
     {
+        if (this.data & COLOR === 0) return;
         this.colors[index*4] = r;
         this.colors[index*4+1] = g;
         this.colors[index*4+2] = b;
@@ -332,11 +357,13 @@ class Surface
         index = index * 2;
         if (layer === 0)
         {
+            if (this.data & TEXTURE0 === 0) return;
             this.texcoord0[index] = u;
             this.texcoord0[index+1] = v;
             this.flags |= VBOTEXTURE0;
         } else
         {
+            if (this.data & TEXTURE1 === 0) return;
             this.texcoord1[index] = u;
             this.texcoord1[index+1] = v;
             this.flags |= VBOTEXTURE1;
@@ -385,6 +412,7 @@ class Surface
     }
     ChangeColor(r,g,b,a)
     {
+        if (this.data & COLOR === 0) return;
         for (let i = 0; i < this.vertices.length; i+=4)
         {
             this.colors[i] = r;
