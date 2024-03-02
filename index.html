@@ -129,12 +129,13 @@
             Renderer.SetMatrix(VIEW_MATRIX, identity);
             Renderer.SetMatrix(MODEL_MATRIX, identity);
             Renderer.SetShader(shader);
-
-
+ 
+ 
             font.SetColor(RED);
             font.SetSize(32);
-            font.SetAllignment(Allign.Center);
-            font.Print(width/2,height/2, "Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
+            font.SetAllignment(Allign.Left);
+            let w = font.GetTextWidth("Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
+            font.Print(width/2-(w/2),height/2, "Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
 
             font.Render();
 

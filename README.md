@@ -1,4 +1,4 @@
 Webgl2 Framework 
 
 
-[Demo](https://webrender3d.netlify.app/)
+[Demo](https://magnificent-clafoutis-cf7572.netlify.app/)
