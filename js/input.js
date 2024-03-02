@@ -215,7 +215,7 @@ class Input
     }
     static TouchDown(event)
     {
-        event.preventDefault();
+     //   event.preventDefault();
         Input.currentButtonState[0] = true;
         let x = event.changedTouches[0].clientX ;
         let y  = event.changedTouches[0].clientY ;
@@ -242,7 +242,7 @@ class Input
     }
     static TouchUp(event)
     {
-        event.preventDefault();
+     //   event.preventDefault();
         let x = event.changedTouches[0].clientX ;
         let y  = event.changedTouches[0].clientY ;
         
@@ -271,7 +271,7 @@ class Input
     }
     static TouchMove(event)
     {
-        event.preventDefault();
+       // event.preventDefault();
         let x = event.changedTouches[0].clientX ;
         let y  = event.changedTouches[0].clientY ;
         
@@ -282,6 +282,7 @@ class Input
         Mouse.DeltaY = (y - rect.top) * scaleY - Mouse.Y;
         Mouse.X = (x - rect.left) * scaleX;
         Mouse.Y = (y - rect.top) * scaleY; 
+
 
         for (let i = 0; i < event.changedTouches.length; i++)
         {

@@ -155,7 +155,10 @@
      
     }
 
-   
+    let firstMouse = true;
+     let lastX = 0;
+    let lastY = 0;
+
 
     function Update(dt)
     {
@@ -182,9 +185,24 @@
 
         if (Input.IsMouseDown(0)) 
         {
-            let dx = Mouse.DeltaX;
-            let dy = Mouse.DeltaY;
-            camera.Rotate(dx * 1.1,-dy * 1.1);
+            if (firstMouse) 
+            {
+                lastX = Mouse.X;
+                lastY = Mouse.Y;
+                firstMouse = false;
+            }
+
+            let xoffset = Mouse.X - lastX;
+            let yoffset = lastY - Mouse.Y; // reversed since y-coordinates go from bottom to top
+
+            lastX = Mouse.X;
+            lastY = Mouse.Y;
+
+            camera.Rotate(xoffset * 1.0, yoffset * 1.0);
+
+            // let dx = Mouse.DeltaX;
+            // let dy = Mouse.DeltaY;
+            // camera.Rotate(dx * 1.1,-dy * 1.1);
         }
       
        
@@ -223,8 +241,8 @@
 
         let trasnform = Matrix4.Translate(-2,1,0);
         let rotateX = Matrix4.RotateX(CurrentTime/1000);
-        let rotateY = Matrix4.RotateY(CurrentTime/1000);
-        let rotateZ = Matrix4.RotateZ(CurrentTime/1000);
+        let rotateY = Matrix4.RotateY(-CurrentTime/1000);
+        let rotateZ = Matrix4.RotateZ(-CurrentTime/1000);
 
         let rotate = Matrix4.Multiply(Matrix4.Multiply(rotateX,rotateY),rotateZ);
 
