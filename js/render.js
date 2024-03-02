@@ -778,7 +778,28 @@ class Renderer
         this.uvBuffer     = gl.createBuffer();
         this.indexBuffer  = gl.createBuffer();
 
+        this.vertexArray  = gl.createVertexArray();
 
+        gl.bindVertexArray(this.vertexArray);
+
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
+        gl.enableVertexAttribArray(1);
+        gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
+        gl.enableVertexAttribArray(2);
+        gl.vertexAttribPointer(2, 4, gl.FLOAT, false, 0, 0);      
+        
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+
+
+
+        gl.bindVertexArray(null);
 
         
    
@@ -1079,6 +1100,47 @@ class Renderer
       
         }
     }  
+
+    static DrawRectangle(x,y,width,height)
+    {
+        let x0 = x;
+        let y0 = y;
+        let x1 = x + width;
+        let y1 = y + height;
+
+        let indices = new Uint16Array([0, 2, 1, 2, 0, 3]);
+        let vertices = new Float32Array([x0, y0, this.depth, x1, y0, this.depth, x1, y1, this.depth, x0, y1, this.depth]);
+        let uv = new Float32Array([0, 0, 1, 0, 1, 1, 0, 1]);
+        let colors = new Float32Array( [this.colorr, this.colorg, this.colorb, this.colora,this.colorr, this.colorg, this.colorb, this.colora,this.colorr, this.colorg, this.colorb, this.colora,this.colorr, this.colorg, this.colorb, this.colora]);
+
+     
+        this.defaultTexture.Use();
+ 
+     
+
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.uvBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, uv, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
+
+        gl.bindVertexArray(this.vertexArray);        
+        gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+        gl.bindVertexArray(null);
+
+    }
 
     static DrawTexture(x, y, width, height)
     {
@@ -1912,6 +1974,27 @@ class Camera
         yoffset *= this.sensitivity;
 
         this.yaw += xoffset;
+        this.pitch += yoffset;
+
+        if (this.pitch > 89.0)
+        {
+            this.pitch = 89.0;
+        }
+        if (this.pitch < -89.0)
+        {
+            this.pitch = -89.0;
+        }
+    }
+
+    RotateX(xoffset)
+    {
+        xoffset *= this.sensitivity;
+        this.yaw += xoffset;
+    }
+    
+    RotateY(yoffset)
+    {
+        yoffset *= this.sensitivity;
         this.pitch += yoffset;
 
         if (this.pitch > 89.0)

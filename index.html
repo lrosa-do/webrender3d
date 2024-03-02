@@ -159,6 +159,12 @@
      let lastX = 0;
     let lastY = 0;
 
+    let leftpad = new Rectangle(0,height-200, 200,200);
+    let rightpad = new Rectangle(width-200,height-200, 200,200);
+    let pitchUpPad = new Rectangle(0,0, 200,200);
+    let pitchDownPad = new Rectangle(width-200,0, 200,200);
+
+
 
     function Update(dt)
     {
@@ -183,26 +189,50 @@
             camera.StrafeRight(speed);
         }
 
-        if (Input.IsMouseDown(0)) 
+        if (isMobile())
         {
-            if (firstMouse) 
+            let isDown = Input.IsMouseDown(0);
+            let left   = leftpad.contains(Mouse.X, Mouse.Y);
+            let top    = pitchUpPad.contains(Mouse.X, Mouse.Y);
+            let right  = rightpad.contains(Mouse.X, Mouse.Y);
+            let bottom = pitchDownPad.contains(Mouse.X, Mouse.Y);
+
+            if (isDown && !left && !bottom && top)
             {
-                lastX = Mouse.X;
-                lastY = Mouse.Y;
-                firstMouse = false;
+                camera.RotateY(speed *10);
             }
 
-            let xoffset = Mouse.X - lastX;
-            let yoffset = lastY - Mouse.Y; // reversed since y-coordinates go from bottom to top
+            if (left && isDown )
+            {
+                camera.RotateX(-speed *15);
+            } else 
+            if (right && isDown)
+            {
+                camera.RotateX(speed *15);
+            }
 
-            lastX = Mouse.X;
-            lastY = Mouse.Y;
+            if (top && isDown && (!left && !right))
+            {
+                camera.MoveForward(speed);
+            } else
+            if (bottom && isDown && (!left && !right))
+            {
+                camera.MoveBackward(speed);
+            }
 
-            camera.Rotate(xoffset * 1.0, yoffset * 1.0);
+                console.log (left, right, top, bottom)
 
-            // let dx = Mouse.DeltaX;
-            // let dy = Mouse.DeltaY;
-            // camera.Rotate(dx * 1.1,-dy * 1.1);
+        } else
+          
+        {
+           if (Input.IsMouseDown(0))
+            {
+               
+                let xoffset = Mouse.DeltaX;
+                let yoffset = Mouse.DeltaY; // reversed since y-coordinates go from bottom to top
+    
+                camera.Rotate(xoffset * 1, -yoffset *1);
+            }
         }
       
        
@@ -288,22 +318,41 @@
         Renderer.SetShader(shader);
         lines.Grid3D(10,10);
         lines.Render();
+
+
         
 
    
     
-        shader = Renderer.GetShader("texture");
+
         Renderer.SetMatrix(PROJECTION_MATRIX, ortho);
         Renderer.SetMatrix(VIEW_MATRIX, identity);
         Renderer.SetMatrix(MODEL_MATRIX, identity);
+
+
+
+
+      //  Renderer.SetCullFace(false);
+
+        shader = Renderer.GetShader("texture");
         Renderer.SetShader(shader);
+
+   //     if (isMobile())
+        {
+            Renderer.SetColor4f(1,1,1,0.1);
+        Renderer.DrawRectangle(leftpad.x,leftpad.y, leftpad.width,leftpad.height);
+        Renderer.DrawRectangle(rightpad.x,rightpad.y, rightpad.width,rightpad.height);
+
+        Renderer.DrawRectangle(pitchUpPad.x,pitchUpPad.y, pitchUpPad.width,pitchUpPad.height);
+        Renderer.DrawRectangle(pitchDownPad.x,pitchDownPad.y, pitchDownPad.width,pitchDownPad.height);
+        }
+  
 
 
         font.SetColor(RED);
         font.SetSize(32);
         font.Print(20,100, "Luis Santos");
  
-    //    Renderer.SetCullFace(false);
 
         font.Render();
 

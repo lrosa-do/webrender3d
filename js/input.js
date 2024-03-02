@@ -170,6 +170,10 @@ class Input
             Input.currentKeyState.push(false);
             Input.previousKeyState.push(false);
         }
+
+        Input.OnMouseDown = function(x,y,b) {        }
+        Input.OnMouseUp = function(x,y,b) {        }
+        Input.OnMouseMove = function(x,y) {        }
     }
     static HideCursor()
     {
@@ -233,6 +237,7 @@ class Input
             let touch = event.changedTouches[i];
             Input.touchList[i].x = touch.clientX;
             Input.touchList[i].y = touch.clientY;
+            Input.OnMouseDown(touch.clientX, touch.clientY, i);
             Input.touchList[i].active = true;
             Input.touchList[i].index = touch.identifier;
             Input.touchCount++;
@@ -257,6 +262,7 @@ class Input
         for (let i = 0; i < event.changedTouches.length; i++)
         {
             let touch = event.changedTouches[i];
+            Input.OnMouseUp(touch.clientX, touch.clientY, i);
             for (let j = 0; j < 8; j++)
             {
                 if (Input.touchList[j].index === touch.identifier)
@@ -287,6 +293,7 @@ class Input
         for (let i = 0; i < event.changedTouches.length; i++)
         {
             let touch = event.changedTouches[i];
+            Input.OnMouseMove(touch.clientX, touch.clientY);
             for (let j = 0; j < 8; j++)
             {
                 if (Input.touchList[j].index === touch.identifier)
@@ -309,6 +316,7 @@ class Input
         Mouse.X = (event.clientX - rect.left) * scaleX;
         Mouse.Y = (event.clientY - rect.top) * scaleY; 
         Input.currentButtonState[event.button] = true; 
+        Input.OnMouseDown(Mouse.X, Mouse.Y, event.button);
     }
     static MouseUp(event)
     {
@@ -320,6 +328,7 @@ class Input
         Mouse.X = (event.clientX - rect.left) * scaleX;
         Mouse.Y = (event.clientY - rect.top) * scaleY;
         Input.currentButtonState[event.button] = false;
+        Input.OnMouseUp(Mouse.X, Mouse.Y, event.button);
         
     }
     static MouseMove(event)
@@ -331,6 +340,7 @@ class Input
         Mouse.DeltaY = (event.clientY - rect.top) * scaleY - Mouse.Y;
         Mouse.X = (event.clientX - rect.left) * scaleX;
         Mouse.Y = (event.clientY - rect.top) * scaleY;
+        Input.OnMouseMove(Mouse.X, Mouse.Y);
     }
 
     static Update()
