@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>WebGL </title>
+   
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+  
+
+    <script src="https://mrdoob.github.io/stats.js/build/stats.min.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/math.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/batch.js"></script>
+    <script src="js/mesh.js"></script>
+    <script src="js/assets.js"></script>
+
+    <script>
+
+
+
+
+        var canvas = document.getElementById("canvas");
+        var gl = canvas.getContext("webgl2",{alpha: true, depth: true, stencil: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: true, powerPreference: "high-performance"});
+
+        if (!gl) 
+        {
+            console.log("O WebGL não está disponível, seu navegador pode não suportar.");
+        }
+
+
+
+        var stats=new Stats();
+        document.body.appendChild(stats.dom);
+
+
+        let CurrentTime, ElapsedTime, PreviousTime = Date.now(), LagTime = 0;
+        let FPS = 60;          // Frames per second
+        let FrameTime = 1 / FPS;
+        let UpdateIntervalInSeconds = FrameTime;
+        let MPF = 1000 * FrameTime; // Milliseconds per frame.
+        let FrameCounter = 0;
+        let CurrentFPS = 0;
+        let UpdateTimeFPS = Date.now();
+
+        const pixelRatio = window.devicePixelRatio || 1;
+        canvas.width  = pixelRatio * window.innerWidth ;
+        canvas.height = pixelRatio * window.innerHeight;
+
+
+        var width = canvas.width;
+        var height = canvas.height;
+
+
+
+
+
+
+        Renderer.Init(width, height);
+        Assets.Init();
+        Input.Init();
+
+     
+  
+
+        let camera = new Camera(0,5,5,0,0,0);
+        let proj =Matrix4.Perspective(45, width/height, 0.1, 1000);
+        let identity=Matrix4.Identity();
+        let lines =new LineBatch(4024);
+        
+        let ortho = Matrix4.Ortho(0, width, height, 0, -10, 10);
+
+
+        let font= new Font(1024);
+        font.Create(defaultFontImage, defaultFontData);
+        let cube = Mesh.CreateCube(1, new TextureMaterial());
+        let plane = Mesh.CreatePlane(10,10, 10,10, new TextureMaterial());
+        let sphere = Mesh.CreateSphere(32, 32, new TextureMaterial());
+        let cylinder = Mesh.CreateCylinder(32, 32, new TextureMaterial());
+        let cone = Mesh.CreateCone(32, 32, new TextureMaterial());
+        let torus = Mesh.CreateTorus(32, 32, 0.5, 1, new TextureMaterial());
+   
+
+
+         Assets.AddTexture("wall", "assets/wall.jpg");
+         Assets.AddTexture("container", "assets/container.png");
+        Assets.AddTexture("metal", "assets/metal.png");
+        Assets.AddTexture("cube", "assets/cube.png");
+        Assets.AddTexture("marble", "assets/marble.jpg");
+
+
+
+
+       
+        async function Load()
+        {
+            await Assets.LoadAll();
+        }
+
+        Assets.OnLoad = function(filename)
+        {
+            
+        };
+
+        Assets.OnComplete = function()
+        {
+           cube.GetMaterial(0).SetTexture(Assets.GetTexture("container"));
+           plane.GetMaterial(0).SetTexture(Assets.GetTexture("wall"));
+           sphere.GetMaterial(0).SetTexture(Assets.GetTexture("marble"));
+           cylinder.GetMaterial(0).SetTexture(Assets.GetTexture("metal"));
+           cone.GetMaterial(0).SetTexture(Assets.GetTexture("cube"));
+           torus.GetMaterial(0).SetTexture(Assets.GetTexture("container"));
+        }
+
+        Assets.OnProgress = function(filename, progress, total)
+        {
+            Renderer.Clear();
+
+            
+    
+            let shader = Renderer.GetShader("texture");
+
+            Renderer.SetMatrix(PROJECTION_MATRIX, ortho);
+            Renderer.SetMatrix(VIEW_MATRIX, identity);
+            Renderer.SetMatrix(MODEL_MATRIX, identity);
+            Renderer.SetShader(shader);
+
+
+            font.SetColor(RED);
+            font.SetSize(32);
+            font.SetAllignment(Allign.Center);
+            font.Print(width/2,height/2, "Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
+
+            font.Render();
+
+            console.log("Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
+        };
+
+
+
+     
+
+
+
+
+    function Process()
+    {
+    
+     
+    }
+
+   
+
+    function Update(dt)
+    {
+
+        let speed = 45 * dt;
+
+        if(Input.IsKeyDown(Key.W))
+        {
+            camera.MoveForward(speed);
+        }else 
+        if(Input.IsKeyDown(Key.S))
+        {
+            camera.MoveBackward(speed);
+        }
+
+        if(Input.IsKeyDown(Key.A))
+        {
+            camera.StrafeLeft(speed);
+        }else
+        if(Input.IsKeyDown(Key.D))
+        {
+            camera.StrafeRight(speed);
+        }
+
+        if (Input.IsMouseDown(0)) 
+        {
+            let dx = Mouse.DeltaX;
+            let dy = Mouse.DeltaY;
+            camera.Rotate(dx * 1.1,-dy * 1.1);
+        }
+      
+       
+        
+        
+    }
+
+ 
+
+
+    function Render()
+    {
+      
+        Renderer.SetClearColor(0.0, 0.0, 0.4, 1.0);
+        Renderer.Clear();
+
+
+        Renderer.SetMatrix(PROJECTION_MATRIX, proj);
+        Renderer.SetMatrix(MODEL_MATRIX, identity);
+
+
+        
+
+
+        camera.Update();
+
+
+
+
+        let shader = Renderer.GetShader("texture");
+        Renderer.SetShader(shader);
+
+        Renderer.SetMatrix(MODEL_MATRIX, identity);
+        plane.Render();
+
+
+        let trasnform = Matrix4.Translate(-2,1,0);
+        let rotateX = Matrix4.RotateX(CurrentTime/1000);
+        let rotateY = Matrix4.RotateY(CurrentTime/1000);
+        let rotateZ = Matrix4.RotateZ(CurrentTime/1000);
+
+        let rotate = Matrix4.Multiply(Matrix4.Multiply(rotateX,rotateY),rotateZ);
+
+        trasnform = Matrix4.Multiply( rotate,trasnform);
+
+        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
+        cube.Render();
+
+
+        trasnform = Matrix4.Translate(2,1,0);
+        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
+    
+        sphere.Render();        
+
+        trasnform = Matrix4.Translate(2,1,2);
+        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
+        cylinder.Render();      
+     
+        trasnform = Matrix4.Translate(-2,1,2);
+        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
+        cone.Render();
+
+        trasnform = Matrix4.Translate(0,1,-2);
+
+        
+
+
+         rotateX = Matrix4.RotateX(CurrentTime/1000);
+         rotateY = Matrix4.RotateY(CurrentTime/1000);
+         rotateZ = Matrix4.RotateZ(CurrentTime/1000);
+
+         rotate = Matrix4.Multiply(Matrix4.Multiply(rotateX,rotateY),rotateZ);
+
+        trasnform = Matrix4.Multiply( rotate,trasnform);
+
+
+        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
+        torus.Render();
+        
+
+        shader = Renderer.GetShader("solid");
+        Renderer.SetMatrix(MODEL_MATRIX, identity);
+        Renderer.SetShader(shader);
+        lines.Grid3D(10,10);
+        lines.Render();
+        
+
+   
+    
+        shader = Renderer.GetShader("texture");
+        Renderer.SetMatrix(PROJECTION_MATRIX, ortho);
+        Renderer.SetMatrix(VIEW_MATRIX, identity);
+        Renderer.SetMatrix(MODEL_MATRIX, identity);
+        Renderer.SetShader(shader);
+
+
+        font.SetColor(RED);
+        font.SetSize(32);
+        font.Print(20,100, "Luis Santos");
+ 
+    //    Renderer.SetCullFace(false);
+
+        font.Render();
+
+    //    Renderer.SetCullFace(true);
+
+
+   
+
+    }
+
+
+
+
+    function GameLoop () 
+    {
+    
+
+       
+        CurrentTime = Date.now();
+        ElapsedTime = (CurrentTime - PreviousTime)/1000;
+        PreviousTime = CurrentTime;
+        LagTime += (ElapsedTime * 1000);
+        FrameCounter++;
+
+
+       
+  
+           
+        Update(ElapsedTime);
+        while (LagTime >= MPF) 
+        {
+            LagTime -= MPF;
+            Process();
+        }
+
+        Render();   
+        Input.Update();
+        if (CurrentTime - UpdateTimeFPS > 1000) 
+        {
+            CurrentFPS = FrameCounter;
+            FrameCounter = 0;
+            UpdateTimeFPS = Date.now();
+        }
+
+    };
+
+
+
+
+
+
+    window.onresize = function()
+    {
+        console.log("resize");
+        let width  =  window.innerWidth;
+        let height =  window.innerHeight;
+    }
+
+    window.onload = function()
+    {
+        console.log("onload");
+        Load().then(() =>
+        {
+            console.log("Start Game");
+            Game();
+        });
+
+    };
+
+
+
+
+    function Game()
+    {
+        GameLoop();
+        stats.update();
+        requestAnimationFrame(Game);
+    }
+
+    </script>
+
+
+ 
+</body>
+</html>

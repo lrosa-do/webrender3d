@@ -1,0 +1,128 @@
+INIT
+
+glEnable(GL_DEPTH_TEST);
+glDepthFunc(GL_LESS);
+glEnable(GL_STENCIL_TEST);
+glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
+
+
+  // render
+        // ------
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // don't forget to clear the stencil buffer!
+
+        // set uniforms
+        shaderSingleColor.use();
+        shaderSingleColor.setMat4("view", view);
+        shaderSingleColor.setMat4("projection", projection);
+
+        shader.use();
+        shader.setMat4("view", view);
+        shader.setMat4("projection", projection);
+
+        // draw floor as normal, but don't write the floor to the stencil buffer, we only care about the containers. We set its mask to 0x00 to not write to the stencil buffer.
+        glStencilMask(0x00);
+        // floor
+        glBindVertexArray(planeVAO);
+        glBindTexture(GL_TEXTURE_2D, floorTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glBindVertexArray(0);
+
+        // 1st. render pass, draw objects as normal, writing to the stencil buffer
+        // --------------------------------------------------------------------
+        glStencilFunc(GL_ALWAYS, 1, 0xFF);
+        glStencilMask(0xFF);
+        // cubes
+        glBindVertexArray(cubeVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, cubeTexture);
+        model = glm::translate(model, glm::vec3(-1.0f, 0.0f, -1.0f));
+        shader.setMat4("model", model);
+          glDrawArrays(GL_TRIANGLES, 0, 36);
+
+        // 2nd. render pass: now draw slightly scaled versions of the objects, this time disabling stencil writing.
+        // Because the stencil buffer is now filled with several 1s. The parts of the buffer that are 1 are not drawn, thus only drawing 
+        // the objects' size differences, making it look like borders.
+        // -----------------------------------------------------------------------------------------------------------------------------
+        glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
+        glStencilMask(0x00);
+        glDisable(GL_DEPTH_TEST);
+        shaderSingleColor.use();
+        float scale = 1.1f;
+        // cubes
+        glBindVertexArray(cubeVAO);
+        glBindTexture(GL_TEXTURE_2D, cubeTexture);
+        model = glm::mat4(1.0f);
+        shaderSingleColor.setMat4("model", model);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glStencilMask(0xFF);
+        glStencilFunc(GL_ALWAYS, 0, 0xFF);
+        glEnable(GL_DEPTH_TEST);
+
+
+
+
+
+        // Inicialização
+gl.enable(gl.DEPTH_TEST);
+gl.depthFunc(gl.LESS);
+gl.enable(gl.STENCIL_TEST);
+gl.stencilFunc(gl.NOTEQUAL, 1, 0xFF);
+gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+
+// Limpar o buffer
+gl.clearColor(0.1, 0.1, 0.1, 1.0);
+gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
+
+// Configurar uniformes
+shaderSingleColor.use();
+shaderSingleColor.setMat4("view", view);
+shaderSingleColor.setMat4("projection", projection);
+
+shader.use();
+shader.setMat4("view", view);
+shader.setMat4("projection", projection);
+
+// Desenhar o chão normalmente, sem escrever no buffer de stencil
+gl.stencilMask(0x00);
+// chão
+gl.bindVertexArray(planeVAO);
+gl.bindTexture(gl.TEXTURE_2D, floorTexture);
+gl.drawArrays(gl.TRIANGLES, 0, 6);
+gl.bindVertexArray(null);
+
+// 1ª passagem de renderização: desenhar objetos normalmente, escrevendo no buffer de stencil
+gl.stencilFunc(gl.ALWAYS, 1, 0xFF);
+gl.stencilMask(0xFF);
+// cubos
+gl.bindVertexArray(cubeVAO);
+gl.activeTexture(gl.TEXTURE0);
+gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
+model = glm.translate(model, glm.vec3(-1.0, 0.0, -1.0));
+shader.setMat4("model", model);
+gl.drawArrays(gl.TRIANGLES, 0, 36);
+
+// 2ª passagem de renderização: desenhar versões ligeiramente escaladas dos objetos,
+// desta vez desativando a escrita no buffer de stencil.
+// O buffer de stencil agora está preenchido com vários 1s.
+// As partes do buffer que são 1 não são desenhadas, desenhando apenas as diferenças de tamanho dos objetos,
+// criando a aparência de bordas.
+gl.stencilFunc(gl.NOTEQUAL, 1, 0xFF);
+gl.stencilMask(0x00);
+gl.disable(gl.DEPTH_TEST);
+shaderSingleColor.use();
+let scale = 1.1;
+// cubos
+gl.bindVertexArray(cubeVAO);
+gl.bindTexture(gl.TEXTURE_2D, cubeTexture);
+model = glm.mat4.create();
+shaderSingleColor.setMat4("model", model);
+gl.drawArrays(gl.TRIANGLES, 0, 36);
+gl.bindVertexArray(null);
+
+// Restaurar as configurações
+gl.stencilMask(0xFF);
+gl.stencilFunc(gl.ALWAYS, 0, 0xFF);
+gl.enable(gl.DEPTH_TEST);
