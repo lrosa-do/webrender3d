@@ -220,7 +220,7 @@
         // } else
           
         // {
-           if (Input.IsMouseDown(0))
+           if (Input.IsMouseDown(0) && !VirtualPad.ActiveKeys())
             {
                
                 let xoffset = Mouse.DeltaX;
@@ -353,6 +353,8 @@
         font.Print(100, 20, "FPS: "+Int(CurrentFPS ) );
         font.Print(100, 40, "textures: "+Int(Renderer.numTextures) + " Draws " + Int(Renderer.numDrawCalls));
         font.Print(100, 60, "Programs: "+Int(Renderer.numPrograms) + " Vertices: " + Int(Renderer.numVertex) + " Triangles: " + Int(Renderer.numTriangles));
+
+        font.Print(50,100, ` Mouse X  ${Mouse.X}  Mouse Y ${Mouse.X}  Mouse Delta x ${Mouse.DeltaX}  Mouse Delta y ${Mouse.DeltaY}`);
        
 
  

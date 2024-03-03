@@ -145,6 +145,18 @@ class VirtualPad
         VirtualPad.keys.push(new KeyPad(key,x,y,w,h));
     }
 
+    static ActiveKeys()
+    {
+        for (let i = 0; i < VirtualPad.keys.length; i++)
+        {
+            if (VirtualPad.keys[i].active)
+            {
+               return true;
+            }
+        }
+      
+    }
+
     static OnMouseDown(x,y)
     {
         for (let i = 0; i < VirtualPad.keys.length; i++)
