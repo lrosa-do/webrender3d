@@ -143,10 +143,10 @@ class AmbientMaterial extends TextureMaterial
     {
         let shader = super.Set();
      
-        shader.SetFloat("light.intensity", 0.05);
-        shader.SetUniform3f("light.color", 0.5, 0.0, 1.0);
-        shader.SetUniform3f("light.ambient", 0.4, 0.4, 0.4);
-        shader.SetUniform3f("light.position", 1.2, 1.0, 2.0);
+        shader.SetFloat("light.intensity", Renderer.light.intensity);
+        shader.SetUniform3f("light.color", Renderer.light.color.r,Renderer.light.color.g,Renderer.light.color.b);
+        shader.SetUniform3f("light.ambient", Renderer.light.ambient.r,Renderer.light.ambient.g,Renderer.light.ambient.b);
+        shader.SetUniform3f("light.position",  Renderer.light.position.x, Renderer.light.position.y, Renderer.light.position.z);
 
         shader.SetInteger("uTexture0", 0);
 
@@ -632,7 +632,7 @@ class Surface
         }
         for (let i = 0; i < normals.length; i++)
         {
-            let normal = normals[i].Normalize();
+            let normal = Vector3.Normalize(normals[i]);
             this.VertexNormal(i, normal.x, normal.y, normal.z);
         }
         this.flags |= VBONORMAL;

@@ -80,19 +80,19 @@
         let font= new Font(1024);
         font.Create(defaultFontImage, defaultFontData);
         let cube = Mesh.CreateCube(1, new AmbientMaterial());
-        cube.CalculateNormals();
+        cube.CalculateNormals(true);
        
 
         console.log("create plane");
         let plane = Mesh.CreatePlane(10,10, 10,10, new AmbientMaterial());
-        plane.CalculateNormals();
+        plane.CalculateNormals(true);
   
 
         // let sphere = Mesh.CreateSphere(32, 32, new TextureMaterial());
         // let cylinder = Mesh.CreateCylinder(32, 32, new TextureMaterial());
         // let cone = Mesh.CreateCone(32, 32, new TextureMaterial());
         let torus = Mesh.CreateTorus(32, 32, 0.5, 1, new AmbientMaterial());
-        torus.CalculateNormals();
+        torus.CalculateNormals(true);
 
         let skybox = new SkyBox();
    
@@ -259,6 +259,7 @@
         
     }
 
+    let  lightPosition = Renderer.light.position;
  
 
 
@@ -309,9 +310,13 @@
         Renderer.PopMatrix();
 
 
-
-
+        lightPosition.x = Math.sin((CurrentTime/1000) *2.0);
+        lightPosition.y = Math.sin((CurrentTime/1000) *2.7);
+        lightPosition.z = Math.cos((CurrentTime/1000) *5.3);
         
+
+        fill.SetColor3f(Renderer.light.color.r,Renderer.light.color.g,Renderer.light.color.b);
+        fill.Sphere(lightPosition.x,lightPosition.y,lightPosition.z,0.2);
 
 
         lines.Grid3D(10,10);
@@ -319,6 +324,13 @@
 
         
         Renderer.SetMatrix(MODEL_MATRIX, identity);
+       
+   
+       
+        Renderer.light.position = lightPosition;
+       
+
+        fill.Render();
         lines.Render();//draw all
 
     
