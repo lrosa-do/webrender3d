@@ -1192,6 +1192,32 @@ class Matrix4
 
 
 	}
+	transformVector(v)
+	{
+		let x = v.x;
+		let y = v.y;
+		let z = v.z;
+	
+		let m = this.m;
+		v.x =  m[0] * x + m[4] * y + m[8]  * z + m[12];
+		v.y =  m[1] * x + m[5] * y + m[9]  * z + m[13];
+		v.z =  m[2] * x + m[6] * y + m[10] * z + m[14];
+		return v;
+	}
+	transformNormal(v)
+	{
+		let x = v.x;
+		let y = v.y;
+		let z = v.z;
+		let m = this.m;
+
+		v.x =  m[0] * x + m[4] * y + m[8]  * z;
+		v.y =  m[1] * x + m[5] * y + m[9]  * z;
+		v.z =  m[2] * x + m[6] * y + m[10] * z;
+	
+		return v;
+	}
+		
 
 	static Identity()
 	{
@@ -1389,6 +1415,63 @@ class Matrix4
 
 
 
+class MatrixStack
+{
+	constructor()
+	{
+		
+        this.stack = [new Matrix4()];
+	}
+
+	
+	Push()
+    {
+    
+        let top = this.stack[this.stack.length - 1].clone();
+        this.stack.push(top);
+    }
+    Pop()
+    {
+ 
+        if (this.stack.length > 1) 
+        {
+            this.stack.pop();
+        } else 
+        {
+            console.error("A pilha de matrizes não pode ficar vazia.");
+        }
+    }
+    Identity()
+    {
+        this.stack[this.stack.length - 1].identity();
+    }
+    Scale(x, y, z)
+    {
+        let mat = Matrix4.Scale(x, y, z);
+        this.stack[this.stack.length - 1] = Matrix4.Multiply(mat,this.stack[this.stack.length - 1]);
+    }
+    Translate(x, y, z)
+    {
+        let mat = Matrix4.Translate(x, y, z);
+        this.stack[this.stack.length - 1] = Matrix4.Multiply(mat,this.stack[this.stack.length - 1]);
+    }
+    Rotate(angle, x, y, z)
+    {
+        let mat = Matrix4.Rotate(angle, x, y, z);
+        this.stack[this.stack.length - 1] = Matrix4.Multiply(mat,this.stack[this.stack.length - 1]);
+    }
+	
+	Multiply(matrix)
+	{
+		this.stack[this.stack.length - 1] = Matrix4.Multiply(matrix,this.stack[this.stack.length - 1]);
+	}
+
+    Top() 
+    {
+        return this.stack[this.stack.length - 1];
+    }
+
+}
 
 
 

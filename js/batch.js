@@ -46,6 +46,13 @@ class Batch
         this.depth=0;
         this.clip = new Rectangle(0, 0, Renderer.GetWidth(), Renderer.GetHeight());
         this.useClip = false;
+   
+        this.transform = new Matrix4();
+ 
+        this.stack = [new Matrix4()];
+   
+ 
+        this.UseTransform = false;
         this.Init();
    
     }
@@ -98,13 +105,73 @@ class Batch
     {
         this.useClip = true;
     }
+    PushMatrix()
+    {
+        this.UseTransform = true;
+        let top = this.stack[this.stack.length - 1].clone();
+        this.stack.push(top);
+    }
+    PopMatrix()
+    {
+        this.UseTransform = false;   
+        if (this.stack.length > 1) 
+        {
+            this.stack.pop();
+        } else 
+        {
+            console.error("A pilha de matrizes não pode ficar vazia.");
+        }
+    }
+    Identity()
+    {
+        this.stack[this.stack.length - 1].identity();
+    }
+    Scale(x, y, z)
+    {
+        let mat = Matrix4.Scale(x, y, z);
+        this.stack[this.stack.length - 1] = Matrix4.Multiply(mat,this.stack[this.stack.length - 1]);
+    }
+    Translate(x, y, z)
+    {
+        let mat = Matrix4.Translate(x, y, z);
+        this.stack[this.stack.length - 1] = Matrix4.Multiply(mat,this.stack[this.stack.length - 1]);
+    }
+    Rotate(angle, x, y, z)
+    {
+        let mat = Matrix4.Rotate(angle, x, y, z);
+        this.stack[this.stack.length - 1] = Matrix4.Multiply(mat,this.stack[this.stack.length - 1]);
+    }
+ 
+    GetTopMatrix() 
+    {
+        return this.stack[this.stack.length - 1];
+    }
+
     Vertex3f(x, y, z)
     {
+
+        let tx =x;
+        let ty =y;
+        let tz =z;
+
+        if (this.UseTransform)
+        {
+            if (this.stack.length > 0) 
+            {
+
+                 this.transform.copy(this.GetTopMatrix());
+                 let m = this.transform.m;
+               
+                  tx =  m[0] * x + m[4] * y + m[8]  * z + m[12];
+                  ty =  m[1] * x + m[5] * y + m[9]  * z + m[13];
+                  tz =  m[2] * x + m[6] * y + m[10] * z + m[14];
+             }
+        }
       
      
-        this.vertices[this.indexCount++] = x;
-        this.vertices[this.indexCount++] = y;
-        this.vertices[this.indexCount++] = z;
+        this.vertices[this.indexCount++] = tx;
+        this.vertices[this.indexCount++] = ty;
+        this.vertices[this.indexCount++] = tz;
         this.vertices[this.indexCount++] = this.colorr;
         this.vertices[this.indexCount++] = this.colorg;
         this.vertices[this.indexCount++] = this.colorb;
@@ -162,7 +229,10 @@ class Batch
 
     Render()
     {
-       this.Flush();   
+        
+        let shader = Renderer.GetShader("solid");
+        Renderer.SetShader(shader);
+        this.Flush();   
     }
 
     Flush()
@@ -988,7 +1058,8 @@ clipTriangle(x0, y0, x1, y1, x2, y2)
 
 DrawTriangle (x0, y0, x1, y1, x2, y2)
 {
-       this.Vertex2f(x0, y0);
+    
+    this.Vertex2f(x0, y0);
     this.Vertex2f(x2, y2);
     this.Vertex2f(x1, y1);
  
@@ -1006,6 +1077,14 @@ Triangle(x0, y0, x1, y1, x2, y2)
     }
     this.DrawTriangle(x0, y0, x1, y1, x2, y2);
    
+   
+}
+
+Triangle3D(x0, y0,z0, x1, y1,z1, x2, y2, z2) 
+{
+    this.Vertex3f(x0, y0,z0);
+    this.Vertex3f(x1, y1,z1);
+    this.Vertex3f(x2, y2,z2);
    
 }
 
@@ -1218,6 +1297,184 @@ Cross(x, y, armLength)
     this.Triangle(x, y, x + armLength, y, x, y + armLength);
     this.Triangle(x, y, x, y + armLength, x - armLength, y);
 }
+//3d
+Cube(x, y, z, size)
+{
+   
+    let halfSize = size / 2;
+    let x0 = x - halfSize;
+    let y0 = y - halfSize;
+    let z0 = z - halfSize;
+    let x1 = x + halfSize;
+    let y1 = y + halfSize;
+    let z1 = z + halfSize;
+     // Face frontal
+
+    this.Triangle3D(x0, y0, z0, x1, y0, z0, x1, y1, z0);
+    this.Triangle3D(x1, y1, z0, x0, y1, z0, x0, y0, z0);
+
+    // Face traseira
+    this.Triangle3D(x1, y0, z1, x0, y0, z1, x0, y1, z1);
+    this.Triangle3D(x0, y1, z1, x1, y1, z1, x1, y0, z1);
+
+    // Face superior
+    this.Triangle3D(x0, y1, z0, x1, y1, z0, x1, y1, z1);
+    this.Triangle3D(x1, y1, z1, x0, y1, z1, x0, y1, z0);
+
+    // Face inferior
+    this.Triangle3D(x1, y0, z0, x0, y0, z0, x0, y0, z1);
+    this.Triangle3D(x0, y0, z1, x1, y0, z1, x1, y0, z0);
+
+    // Face lateral esquerda
+    this.Triangle3D(x0, y0, z1, x0, y0, z0, x0, y1, z0);
+    this.Triangle3D(x0, y1, z0, x0, y1, z1, x0, y0, z1);
+
+    // Face lateral direita
+    this.Triangle3D(x1, y0, z0, x1, y0, z1, x1, y1, z1);
+    this.Triangle3D(x1, y1, z1, x1, y1, z0, x1, y0, z0);
+
+
+
+
+
+}
+Sphere(x, y, z, radius, numLines=12) 
+{
+    var segments = numLines / 2;
+    var step = Math.PI / segments;
+
+    for (let i = 0; i < segments; i++)
+    {
+        let angle0 = i * step;
+        let angle1 = (i + 1) * step;
+        let y0 = y + Math.cos(angle0) * radius;
+        let y1 = y + Math.cos(angle1) * radius;
+        let r0 = Math.sin(angle0) * radius;
+        let r1 = Math.sin(angle1) * radius;
+
+        for (let j = 0; j < numLines; j++)
+        {
+            let angle0 = j * 2 * Math.PI / numLines;
+            let angle1 = (j + 1) * 2 * Math.PI / numLines;
+            let x0 = x + Math.cos(angle0) * r0;
+            let x1 = x + Math.cos(angle1) * r0;
+            let x2 = x + Math.cos(angle1) * r1;
+            let x3 = x + Math.cos(angle0) * r1;
+            let z0 = z + Math.sin(angle0) * r0;
+            let z1 = z + Math.sin(angle1) * r0;
+            let z2 = z + Math.sin(angle1) * r1;
+            let z3 = z + Math.sin(angle0) * r1;
+
+            this.Triangle3D(x0, y0, z0, x1, y0, z1, x2, y1, z2);
+            this.Triangle3D(x2, y1, z2, x3, y1, z3, x0, y0, z0);
+        }
+    }
+
+   
+}
+Cylinder(x, y, z, radius, height, numLines=16)
+ {
+    var segments = numLines;
+    var step = Math.PI * 2 / segments;
+
+    for (let i = 0; i < segments; i++)
+    {
+        let angle0 = i * step;
+        let angle1 = (i + 1) * step;
+        let x0 = x + Math.cos(angle0) * radius;
+        let x1 = x + Math.cos(angle1) * radius;
+        let z0 = z + Math.sin(angle0) * radius;
+        let z1 = z + Math.sin(angle1) * radius;
+
+        this.Triangle3D(x0, y, z0, x1, y, z1, x1, y + height, z1);
+        this.Triangle3D(x1, y + height, z1, x0, y + height, z0, x0, y, z0);
+    }
+
+    for (let i = 0; i < segments; i++)
+    {
+        let angle0 = i * step;
+        let angle1 = (i + 1) * step;
+        let x0 = x + Math.cos(angle0) * radius;
+        let x1 = x + Math.cos(angle1) * radius;
+        let z0 = z + Math.sin(angle0) * radius;
+        let z1 = z + Math.sin(angle1) * radius;
+
+        this.Triangle3D(x0, y, z0, x1, y, z1, x, y, z);
+        this.Triangle3D(x0, y + height, z0, x, y + height, z, x1, y + height, z1);
+    }
+ 
+    
+}
+Cone(x, y, z, radius, height, numLines=16)
+{
+    var segments = numLines;
+    var step = Math.PI * 2 / segments;
+
+    for (let i = 0; i < segments; i++)
+    {
+        let angle0 = i * step;
+        let angle1 = (i + 1) * step;
+        let x0 = x + Math.cos(angle0) * radius;
+        let x1 = x + Math.cos(angle1) * radius;
+        let z0 = z + Math.sin(angle0) * radius;
+        let z1 = z + Math.sin(angle1) * radius;
+
+        this.Triangle3D(x0, y, z0, x1, y, z1, x, y + height, z);
+    }
+
+    for (let i = 0; i < segments; i++)
+    {
+        let angle0 = i * step;
+        let angle1 = (i + 1) * step;
+        let x0 = x + Math.cos(angle0) * radius;
+        let x1 = x + Math.cos(angle1) * radius;
+        let z0 = z + Math.sin(angle0) * radius;
+        let z1 = z + Math.sin(angle1) * radius;
+
+        this.Triangle3D(x0, y, z0, x1, y, z1, x, y, z);
+    }
+
+
+
+}
+
+Torus(x, y, z,stacks, slices, innerRadius, outerRadius)
+{
+   
+    var bodyStep = Math.PI * 2 / slices;
+    var tubeStep = Math.PI * 2 / stacks;
+
+    for (let i = 0; i < slices; i++) {
+        for (let j = 0; j < stacks; j++) {
+            let angleBody0 = i * bodyStep;
+            let angleBody1 = (i + 1) * bodyStep;
+            let angleTube0 = j * tubeStep;
+            let angleTube1 = (j + 1) * tubeStep;
+
+            let x0 = x + Math.cos(angleBody0) * (outerRadius + Math.cos(angleTube0) * innerRadius);
+            let y0 = y + Math.sin(angleTube0) * innerRadius;
+            let z0 = z + Math.sin(angleBody0) * (outerRadius + Math.cos(angleTube0) * innerRadius);
+
+            let x1 = x + Math.cos(angleBody1) * (outerRadius + Math.cos(angleTube0) * innerRadius);
+            let y1 = y + Math.sin(angleTube0) * innerRadius;
+            let z1 = z + Math.sin(angleBody1) * (outerRadius + Math.cos(angleTube0) * innerRadius);
+
+            let x2 = x + Math.cos(angleBody1) * (outerRadius + Math.cos(angleTube1) * innerRadius);
+            let y2 = y + Math.sin(angleTube1) * innerRadius;
+            let z2 = z + Math.sin(angleBody1) * (outerRadius + Math.cos(angleTube1) * innerRadius);
+
+            let x3 = x + Math.cos(angleBody0) * (outerRadius + Math.cos(angleTube1) * innerRadius);
+            let y3 = y + Math.sin(angleTube1) * innerRadius;
+            let z3 = z + Math.sin(angleBody0) * (outerRadius + Math.cos(angleTube1) * innerRadius);
+
+            this.Triangle3D(x0, y0, z0, x1, y1, z1, x2, y2, z2);
+            this.Triangle3D(x0, y0, z0, x2, y2, z2, x3, y3, z3);
+        }
+    }
+
+
+}
+
 
 
 
@@ -4311,8 +4568,9 @@ class Font
 
              
 
-        // let shader = Renderer.GetShader("texture");
-        // Renderer.SetShader(shader);
+        let shader = Renderer.GetShader("texture");
+        Renderer.SetShader(shader);
+
        
  
        
@@ -4326,7 +4584,7 @@ class Font
       
 
         Renderer.SetTexture(this.texture);
-        //this.texture.Use();
+      //  this.texture.Use();
         gl.bindVertexArray(this.VAO);
         gl.drawElements(gl.TRIANGLES, (this.vertexCount / 4) * 6, gl.UNSIGNED_SHORT, 0);
   

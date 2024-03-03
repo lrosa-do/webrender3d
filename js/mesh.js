@@ -60,6 +60,13 @@ class Material
     {
         let shader = Renderer.GetShader(this.shaderName);
         Renderer.SetShader(shader);
+
+        Renderer.SetCullFace(true);
+        Renderer.SetDepthFunc(gl.LESS);
+    }
+    UnSet()
+    {
+        
     }
 }
 
@@ -79,10 +86,47 @@ class TextureMaterial extends Material
     }
     Set()
     {
-        let shader = Renderer.GetShader(this.shaderName);
-        Renderer.SetShader(shader);
+        super.Set();
+        // let shader = Renderer.GetShader(this.shaderName);
+        // Renderer.SetShader(shader);
+
         if (this.texture !== null && this.texture !== undefined)
          Renderer.SetTexture(this.texture);
+    }
+}
+
+class SkyBoxMaterial extends Material
+{
+    constructor(texture=null)
+    {
+        super();
+        this.texture = texture;
+        this.shaderName = "skybox";
+        this.attributes = [POSITION];
+    }
+    SetTexture(texture)
+    {
+        this.texture = texture;
+        return this;
+    }
+    Set()
+    {
+
+        super.Set();
+        let shader = Renderer.GetShader(this.shaderName);
+        Renderer.SetShader(shader);
+
+        shader.SetInteger("skybox", 0);
+        Renderer.SetCullFace(false);
+        Renderer.SetDepthFunc(gl.LEQUAL);
+        if (this.texture !== null && this.texture !== undefined)
+        {
+            gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture.id);
+        }
+    }
+    UnSet()
+    {
+        gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
     }
 }
 
@@ -557,6 +601,7 @@ class Mesh
             let material = this.materials[this.surfaces[i].materialIndex];
             material.Set();
             this.surfaces[i].Render();
+            material.UnSet();
         }
     }
     GetMaterial(index)
@@ -900,56 +945,29 @@ class Mesh
     }
 }
 
-/*
 
-
-Mesh *Mesh::CreateTorus(int stacks, int slices, float innerRadius, float outerRadius)
+class SkyBox 
 {
-    Mesh* mesh = new Mesh();
-  TextureSurface *surface   = (TextureSurface*)mesh->AddSurface();
-   
-    const float pi = 3.14159265359f;
-    const float stackAngle = 2.0f * pi / static_cast<float>(stacks);
-    const float sliceAngle = 2.0f * pi / static_cast<float>(slices);
-
-    for (int i = 0; i <= stacks; ++i) 
+    constructor()
     {
-        float u = static_cast<float>(i) * stackAngle;
+        this.material = new SkyBoxMaterial();
+        this.mesh = Mesh.CreateCube(100.0, this.material);
 
-        for (int j = 0; j <= slices; ++j) 
-        {
-            float v = static_cast<float>(j) * sliceAngle;
-
-            float x = (outerRadius + innerRadius * std::cos(v)) * std::cos(u);
-            float y = (outerRadius + innerRadius * std::cos(v)) * std::sin(u);
-            float z = innerRadius * std::sin(v);
-
-            float textureU = static_cast<float>(i) / stacks;
-            float textureV = static_cast<float>(j) / slices;
-
-            surface->addVertex(x, y, z, textureU, textureV);
-        }
     }
-
-    for (int i = 0; i < stacks; ++i) 
+    SetTexture(texture)
     {
-        for (int j = 0; j < slices; ++j) 
-        {
-            int index = (slices + 1) * i + j;
-
-            surface->addTriangle(index,
-            index + slices + 1,
-            index + slices + 2);
-
-            surface->addTriangle(index,
-            index + slices + 2,
-            index + 1);
-        }
+        this.material.SetTexture(texture);
     }
-   surface->CreateBuffers();
+ 
     
+    Render()
+    {
+        Renderer.SetCullFace(false);
+        Renderer.SetDepthFunc(gl.LEQUAL);
+        this.mesh.Render();
+        Renderer.SetCullFace(true);
+        Renderer.SetDepthFunc(gl.LESS);
 
-    return mesh;
+    }
+
 }
-
-*/

@@ -267,6 +267,60 @@ class Texture2D extends Texture
     }
 }
 
+
+class TextureCube extends Texture
+{
+    constructor()
+    {
+        super();
+      
+       
+    }
+
+     Build(list)
+    {
+
+     
+
+
+        //  this.faceInfos = 
+        // [
+        //     { target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, image: list[0] }, //right
+        //     { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, image: list[1] }, //left
+        //     { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, image: list[2] },  //top
+        //     { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, image: list[3] }, //bottom
+        //     { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, image: list[4] }, // front
+        //     { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, image: list[5] }, // back
+        // ];
+
+            this.id = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.id);
+
+            for (let i = 0; i < list.length; i++)
+            {
+                gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, list[i]);
+            }
+        
+            // gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, list[0]);
+            // gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_X, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, list[1]);
+            
+            // gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, list[2]);
+            // gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, list[3]);
+            
+            // gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, list[4]);
+            // gl.texImage2D(gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, list[5]);
+
+            
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+ 
+
+    }
+
+}
 //********************************************************************************************************************************************/
 
 class RenderTexture extends Texture
@@ -764,6 +818,7 @@ class Renderer
     static isBlendEnabled = false;
     static isDepthTestEnabled = false;
     static isCullFaceEnabled = false;
+    static depthFunc = -1;
     static blendMode = -1;
     static currentShader = null;
 
@@ -834,6 +889,10 @@ class Renderer
         this.matrix[MODEL_MATRIX] = new Matrix4();  
         this.matrix[VIEW_MATRIX] = new Matrix4();
 
+        
+
+        this.stack = new MatrixStack();
+
 
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -870,6 +929,47 @@ class Renderer
             console.error("Erro WebGL: " + error);
         }
      }
+
+     static  PushMatrix()
+     {
+         this.UseTransform = true;
+         this.stack.Push();
+     }
+     static   PopMatrix()
+     {
+         this.UseTransform = false;   
+         this.stack.Pop();
+     }
+     static  Identity()
+     {
+         this.stack.Identity();
+         this.matrix[MODEL_MATRIX].copy(this.stack.Top());
+     }
+     static  Scale(x, y, z)
+     {
+        this.stack.Scale(x, y, z);
+        this.matrix[MODEL_MATRIX].copy(this.stack.Top());
+     }
+     static Translate(x, y, z)
+     {
+         this.stack.Translate(x, y, z);
+         this.matrix[MODEL_MATRIX].copy(this.stack.Top());
+     }
+     static Rotate(angle, x, y, z)
+     {
+         this.stack.Rotate(angle, x, y, z);
+         this.matrix[MODEL_MATRIX].copy(this.stack.Top());
+     }
+  
+
+     static ApplyTransform()
+    {
+        if (this.UseTransform)
+        {
+       //  this.matrix[MODEL_MATRIX].copy(this.stack.Top());
+        }
+    }
+   
      static DrawElements(mode, vertexCount,  offset)
      {
          gl.drawElements(mode, vertexCount, gl.UNSIGNED_SHORT, offset);
@@ -937,6 +1037,7 @@ class Renderer
         {
         this.shaders["solid"] = this.CreateColorShader();
         this.shaders["texture"] = this.CreateTextureShader();
+        this.shaders["skybox"] = this.CreatSkyboxShader();
         resolve();
         });
     }
@@ -995,6 +1096,16 @@ class Renderer
     static SetDepth (depth)
     {
         this.depth = -depth;
+    }
+
+
+    static SetDepthFunc(func)
+    {
+        if (this.depthFunc !== func)
+        {
+            gl.depthFunc(func);
+            this.depthFunc = func;
+        }
     }
 
 
@@ -1104,6 +1215,8 @@ class Renderer
         this.numTriangles = 0;
         this.numTextures=0;
         this.numPrograms=0;
+        this.currentTexture = null;
+        this.currentProgram = null;
 
         let flags = gl.COLOR_BUFFER_BIT;
         if (this.isDepthTestEnabled)
@@ -1943,6 +2056,45 @@ class Renderer
 
         }
 
+        static CreatSkyboxShader()
+        {
+            let VertexShaderSkybox = `#version 300 es
+            precision mediump float;
+            layout (location = 0) in vec3 aPosition;
+            uniform mat4 uProjection;
+            uniform mat4 uView;
+            out vec3 TexCoord;
+            void main()
+            {
+                TexCoord = aPosition;
+                mat4 view =mat4(mat3(uView));
+                vec4 pos = uProjection * view * vec4(aPosition, 1.0);
+                gl_Position = pos.xyww;
+            }
+            `;
+
+            let FragmentShaderSkybox = `#version 300 es
+            precision mediump float;
+            in vec3 TexCoord;
+            out vec4 FragColor;
+            uniform samplerCube cubeTexture;
+            void main()
+            {
+                FragColor = texture(cubeTexture, TexCoord);
+            }
+            `;
+
+            let shader = new Shader();
+            shader.Load(VertexShaderSkybox, FragmentShaderSkybox);
+            shader.Use();
+            shader.AddUniform("uProjection");
+            shader.AddUniform("uView");
+            shader.AddUniform("cubeTexture");
+            shader.UnSet();
+            return shader;
+        
+
+        }
 
 }
 //********************************************************************************************************************************************/

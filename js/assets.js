@@ -8,6 +8,7 @@ class Assets
     static imagesToLoad = [];
     static audioToLoad = [];
     static texturesToLoad = [];
+    static cubeTexturesToLoad = [];
 
     static images = {};
     static textures = {};
@@ -139,10 +140,75 @@ class Assets
         });
     }
 
+    static async LoadTextureCube(name, list)
+    {
+       // await Assets.Delay(Assets.DefaultDelay);
+       return new Promise((resolve) => 
+       {
+                    
+            
+            Assets.progress++;
+            Assets.Progress(name, Assets.progress, Assets.total);
+
+            console.log("Build Cube Texture  "+name+ "   " +list);
+            const texture = new TextureCube();
+            texture.name = name;
+            this.textures[name] = texture;
+            let images =[];
+            images.push(Assets.GetImage(list+"0"));
+            images.push(Assets.GetImage(list+"1"));
+            images.push(Assets.GetImage(list+"2"));
+            images.push(Assets.GetImage(list+"3"));
+            images.push(Assets.GetImage(list+"4"));
+            images.push(Assets.GetImage(list+"5"));
+           
+            texture.Build(images);
+
+        
+            resolve();
+           
+            // const images =[];
+            // console.log("Load images to cube ...");
+ 
+            // let index =0;
+            // for (let i = 0; i < list.length; i++)
+            // {
+            //     const image = new Image();
+            //     image.onload = () => 
+            //     {
+                    
+            //             Assets.progress++;
+            //             Assets.Progress(list[i], Assets.progress, Assets.total);
+            //             this.OnLoad(list[i]);
+            //             images.push(image);
+              
+            //             index++;
+            //             if (index >= 6) 
+            //             {
+                          
+                          
+            //                 console.log("Build Cube Texture ...");
+            //                 const texture = new TextureCube();
+            //                 texture.name = name;
+            //                 this.textures[name] = texture;
+            //                 texture.Build(images);
+            //         //        resolve();
+                          
+                        
+            //             }
+                      
+                  
+            //     };
+            //     image.src = list[i];
+            // }
+
+          
+        });
+    }
 
     static async LoadImage(name, src) 
     {
-        await Assets.Delay(Assets.DefaultDelay);
+      //  await Assets.Delay(Assets.DefaultDelay);
         return new Promise((resolve) => 
         {
            
@@ -209,9 +275,14 @@ class Assets
         this.audioToLoad.push({name: name, src: filename});
     }
 
+    static AddTextureCube(name, list)
+    {
+        this.cubeTexturesToLoad.push({name: name, start: list});
+    }
+
     static async LoadAll()
     {
-        this.total = this.imagesToLoad.length + this.audioToLoad.length + this.texturesToLoad.length;
+        this.total = this.imagesToLoad.length + this.audioToLoad.length + this.texturesToLoad.length + this.cubeTexturesToLoad.length;
         this.progress = 0;
         for (let i = 0; i < this.imagesToLoad.length; i++)
         {
@@ -226,9 +297,15 @@ class Assets
 
            await this.LoadTexture(this.texturesToLoad[i].name, this.texturesToLoad[i].src);
         }
+
+        for (let i = 0; i < this.cubeTexturesToLoad.length; i++)
+        {
+            await this.LoadTextureCube(this.cubeTexturesToLoad[i].name, this.cubeTexturesToLoad[i].start);
+        }
         this.audioToLoad = [];
         this.imagesToLoad = [];
         this.texturesToLoad = [];
+        this.cubeTexturesToLoad = [];
         this.OnComplete();
 
     }
@@ -287,6 +364,18 @@ class Assets
                 image.src = src;
 
 
+    }
+
+    static GetImage(name)
+    {
+        let image = this.images[name];
+        if (image)
+        {
+            return image;
+        } else 
+        {
+            console.warn('Imagem não encontrada: ' + name);
+        }
     }
 
     static GetTexture(name)

@@ -72,7 +72,7 @@
         let proj =Matrix4.Perspective(45, width/height, 0.1, 1000);
         let identity=Matrix4.Identity();
         let lines =new LineBatch(4024);
-        let fill = new FillBatch(1024);
+        let fill = new FillBatch(4024);
         
         let ortho = Matrix4.Ortho(0, width, height, 0, -10, 10);
 
@@ -85,6 +85,8 @@
         let cylinder = Mesh.CreateCylinder(32, 32, new TextureMaterial());
         let cone = Mesh.CreateCone(32, 32, new TextureMaterial());
         let torus = Mesh.CreateTorus(32, 32, 0.5, 1, new TextureMaterial());
+
+        let skybox = new SkyBox();
    
 
 
@@ -94,7 +96,45 @@
         Assets.AddTexture("cube", "assets/cube.png");
         Assets.AddTexture("marble", "assets/marble.jpg");
 
+         Assets.AddImage("skybox0",      "assets/skybox/right.jpg");
+         Assets.AddImage("skybox1",      "assets/skybox/left.jpg");
 
+         Assets.AddImage("skybox2",      "assets/skybox/top.jpg");
+         Assets.AddImage("skybox3",      "assets/skybox/bottom.jpg");
+
+         Assets.AddImage("skybox4",      "assets/skybox/front.jpg");
+         Assets.AddImage("skybox5",      "assets/skybox/back.jpg");
+        
+
+        // Assets.AddTextureCube("skybox",[
+        //     "assets/skybox/right.jpg",
+        //     "assets/skybox/left.jpg",
+        //     "assets/skybox/top.jpg",
+        //     "assets/skybox/bottom.jpg",
+        //     "assets/skybox/front.jpg",
+        //     "assets/skybox/back.jpg"]);
+
+
+
+        /*
+
+        { target: gl.TEXTURE_CUBE_MAP_POSITIVE_X, url: 'right.jpg' },
+        { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X, url: 'left.jpg' },
+        { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y, url: 'top.jpg' },
+        { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, url: 'bottom.jpg' },
+        { target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z, url: 'front.jpg' },
+        { target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, url: 'back.jpg' },
+        */
+
+        // Assets.AddTextureCube("skybox",[
+        //     "assets/skybox/right.jpg",
+        //     "assets/skybox/left.jpg",
+        //     "assets/skybox/top.jpg",
+        //     "assets/skybox/bottom.jpg",
+        //     "assets/skybox/front.jpg",
+        //     "assets/skybox/back.jpg"]);
+
+        Assets.AddTextureCube("skybox","skybox");
 
 
        
@@ -116,6 +156,7 @@
            cylinder.GetMaterial(0).SetTexture(Assets.GetTexture("metal"));
            cone.GetMaterial(0).SetTexture(Assets.GetTexture("cube"));
            torus.GetMaterial(0).SetTexture(Assets.GetTexture("container"));
+           skybox.SetTexture(Assets.GetTexture("skybox"));
         }
 
         Assets.OnProgress = function(filename, progress, total)
@@ -172,6 +213,8 @@
     function Update(dt)
     {
 
+      
+
         let speed = 45 * dt;
 
         if(Input.IsKeyDown(Key.W))
@@ -192,39 +235,12 @@
             camera.StrafeRight(speed);
         }
 
-        // if (isMobile())
-        // {
-           
-            
-
-        //     if (left  )
-        //     {
-        //         camera.RotateX(-speed *15);
-        //     } else 
-        //     if (right )
-        //     {
-        //         camera.RotateX(speed *15);
-        //     }
-
-        //     if (top)
-        //     {
-        //         camera.MoveForward(speed);
-        //     } else
-        //     if (bottom )
-        //     {
-        //         camera.MoveBackward(speed);
-        //     }
-
-        //         console.log (left, right, top, bottom)
-
-        // } else
-          
-        // {
+   
            if (Input.IsMouseDown(0) && !VirtualPad.ActiveKeys())
             {
                
                 let xoffset = Mouse.DeltaX;
-                let yoffset = Mouse.DeltaY; // reversed since y-coordinates go from bottom to top
+                let yoffset = Mouse.DeltaY; 
     
                 camera.Rotate(xoffset * 1, -yoffset *1);
             }
@@ -256,75 +272,49 @@
 
 
 
-
-        let shader = Renderer.GetShader("texture");
-        Renderer.SetShader(shader);
-
         Renderer.SetMatrix(MODEL_MATRIX, identity);
+        skybox.Render();
         plane.Render();
 
 
-        let trasnform = Matrix4.Translate(-2,1,0);
-        let rotateX = Matrix4.RotateX(CurrentTime/1000);
-        let rotateY = Matrix4.RotateY(-CurrentTime/1000);
-        let rotateZ = Matrix4.RotateZ(-CurrentTime/1000);
-
-        let rotate = Matrix4.Multiply(Matrix4.Multiply(rotateX,rotateY),rotateZ);
-
-        trasnform = Matrix4.Multiply( rotate,trasnform);
-
-        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
-        cube.Render();
+        
 
 
-        trasnform = Matrix4.Translate(2,1,0);
-        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
-        sphere.Render();        
-
-        trasnform = Matrix4.Translate(2,1,1);
-        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
-        sphere.Render();        
-
-        trasnform = Matrix4.Translate(2,1,2);
-        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
-        sphere.Render();        
-        trasnform = Matrix4.Translate(2,1,3);
-        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
-        sphere.Render();        
+       Renderer.PushMatrix();
+       Renderer.Identity();
+            Renderer.Translate(0,1,0);
+           // Renderer.Rotate(CurrentTime/1000,1,0,0);
+            Renderer.Rotate(CurrentTime/1000,0,1,0);
+         //   Renderer.Rotate(CurrentTime/1000,0,0,1);
+            cube.Render();
+        
 
 
 
-        trasnform = Matrix4.Translate(2,1,-3);
-        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
-        cylinder.Render();      
-     
-        trasnform = Matrix4.Translate(-2,1,2);
-        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
-        cone.Render();
+            Renderer.Translate(0,1,-5);
+            Renderer.Rotate(CurrentTime/1000,1,0,0);
+            Renderer.Rotate(CurrentTime/1000,0,1,0);
+            Renderer.Rotate(CurrentTime/1000,0,0,1);
+            torus.Render();
+    
 
-        trasnform = Matrix4.Translate(0,1,-2);
+        Renderer.PopMatrix();
+
+
+
 
         
 
 
-         rotateX = Matrix4.RotateX(CurrentTime/1000);
-         rotateY = Matrix4.RotateY(CurrentTime/1000);
-         rotateZ = Matrix4.RotateZ(CurrentTime/1000);
-
-         rotate = Matrix4.Multiply(Matrix4.Multiply(rotateX,rotateY),rotateZ);
-
-        trasnform = Matrix4.Multiply( rotate,trasnform);
-
-
-        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
-        torus.Render();
-        
-
-        shader = Renderer.GetShader("solid");
-        Renderer.SetMatrix(MODEL_MATRIX, identity);
-        Renderer.SetShader(shader);
         lines.Grid3D(10,10);
-        lines.Render();
+
+
+        
+        Renderer.SetMatrix(MODEL_MATRIX, identity);
+        lines.Render();//draw all
+
+    
+
 
 
         
@@ -332,20 +322,19 @@
    
     
 
+        VirtualPad.Render(fill);
+
+
+        fill.SetColor(RED);
+        fill.Rectangle(Mouse.X,Mouse.Y,20,20);
+
+        
+
         Renderer.SetMatrix(PROJECTION_MATRIX, ortho);
         Renderer.SetMatrix(VIEW_MATRIX, identity);
         Renderer.SetMatrix(MODEL_MATRIX, identity);
+        fill.Render();//draw all
 
-        VirtualPad.Render(fill);
-        fill.SetColor(RED);
-        fill.Rectangle(Mouse.X,Mouse.Y,20,20);
-        fill.Render();
-
-
-      //  Renderer.SetCullFace(false);
-
-        shader = Renderer.GetShader("texture");
-        Renderer.SetShader(shader);
 
 
 
@@ -355,16 +344,15 @@
         font.Print(100, 40, "textures: "+Int(Renderer.numTextures) + " Draws " + Int(Renderer.numDrawCalls));
         font.Print(100, 60, "Programs: "+Int(Renderer.numPrograms) + " Vertices: " + Int(Renderer.numVertex) + " Triangles: " + Int(Renderer.numTriangles));
 
-        font.Print(50,100, ` Mouse X  ${Mouse.X}  Mouse Y ${Mouse.X}  Mouse Delta x ${Mouse.DeltaX}  Mouse Delta y ${Mouse.DeltaY}`);
+       // font.Print(50,100, ` Mouse X  ${Mouse.X}  Mouse Y ${Mouse.X}  Mouse Delta x ${Mouse.DeltaX}  Mouse Delta y ${Mouse.DeltaY}`);
        
 
- 
-
-        font.Render();
+        font.Render();//draw all
 
     //    Renderer.SetCullFace(true);
 
 
+      //  Renderer.SetCullFace(false);
    
 
     }
