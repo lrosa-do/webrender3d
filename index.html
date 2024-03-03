@@ -337,7 +337,8 @@
         Renderer.SetMatrix(MODEL_MATRIX, identity);
 
         VirtualPad.Render(fill);
-      //  fill.Rectangle(0,0,200,200);
+        fill.SetColor(RED);
+        fill.Rectangle(Mouse.X,Mouse.Y,20,20);
         fill.Render();
 
 

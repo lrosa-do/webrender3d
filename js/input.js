@@ -299,52 +299,58 @@ class Input
     }
     static TouchDown(event)
     {
-     //   event.preventDefault();
+      
         Input.currentButtonState[0] = true;
-        let x = event.changedTouches[0].clientX ;
-        let y  = event.changedTouches[0].clientY ;
-        
+   
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
-        Mouse.DeltaX = (x - rect.left) * scaleX - Mouse.X;
-        Mouse.DeltaY = (y - rect.top) * scaleY - Mouse.Y;
-        Mouse.X = (x - rect.left) * scaleX;
-        Mouse.Y = (y - rect.top) * scaleY; 
+
 
         for (let i = 0; i < event.changedTouches.length; i++)
         {
+
+
             let touch = event.changedTouches[i];
+                
+            let x = touch.clientX;
+            let y = touch.clientY;
+
+          
+
+             Mouse.DeltaX = (x - rect.left) * scaleX - Mouse.X;
+             Mouse.DeltaY = (y - rect.top) * scaleY - Mouse.Y;
+             Mouse.X =Int ((x - rect.left) * scaleX);
+             Mouse.Y =Int ((y - rect.top) * scaleY); 
+
             Input.touchList[i].x = touch.clientX;
             Input.touchList[i].y = touch.clientY;
-            VirtualPad.OnMouseDown(touch.clientX, touch.clientY);
-            Input.OnMouseDown(touch.clientX, touch.clientY, i);
+            VirtualPad.OnMouseDown(Mouse.X,Mouse.Y);
+            Input.OnMouseDown(Mouse.X,Mouse.Y, i);
             Input.touchList[i].active = true;
             Input.touchList[i].index = touch.identifier;
             Input.touchCount++;
         }
-
+      
         
     }
     static TouchUp(event)
     {
-     //   event.preventDefault();
-        let x = event.changedTouches[0].clientX ;
-        let y  = event.changedTouches[0].clientY ;
+      
         
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = canvas.width / rect.width;
-        const scaleY = canvas.height / rect.height;
-        Mouse.DeltaX = (x - rect.left) * scaleX - Mouse.X;
-        Mouse.DeltaY = (y - rect.top) * scaleY - Mouse.Y;
-        Mouse.X = (x - rect.left) * scaleX;
-        Mouse.Y = (y - rect.top) * scaleY;
+    
         Input.currentButtonState[0] = false;
         for (let i = 0; i < event.changedTouches.length; i++)
         {
             let touch = event.changedTouches[i];
-            Input.OnMouseUp(touch.clientX, touch.clientY, i);
-            VirtualPad.OnMouseUp(touch.clientX, touch.clientY);
+
+            
+
+          
+
+
+            Input.OnMouseUp(Mouse.X,Mouse.Y, i);
+            VirtualPad.OnMouseUp(Mouse.X,Mouse.Y);
             for (let j = 0; j < 8; j++)
             {
                 if (Input.touchList[j].index === touch.identifier)
@@ -360,22 +366,28 @@ class Input
     static TouchMove(event)
     {
        // event.preventDefault();
-        let x = event.changedTouches[0].clientX ;
-        let y  = event.changedTouches[0].clientY ;
-        
+    
         const rect = canvas.getBoundingClientRect();
         const scaleX = canvas.width / rect.width;
         const scaleY = canvas.height / rect.height;
-        Mouse.DeltaX = (x - rect.left) * scaleX - Mouse.X;
-        Mouse.DeltaY = (y - rect.top) * scaleY - Mouse.Y;
-        Mouse.X = (x - rect.left) * scaleX;
-        Mouse.Y = (y - rect.top) * scaleY; 
+  
 
 
         for (let i = 0; i < event.changedTouches.length; i++)
         {
             let touch = event.changedTouches[i];
-            Input.OnMouseMove(touch.clientX, touch.clientY);
+  
+    
+            let x = touch.clientX;
+            let y = touch.clientY;
+
+          
+
+             Mouse.DeltaX = (x - rect.left) * scaleX - Mouse.X;
+             Mouse.DeltaY = (y - rect.top) * scaleY - Mouse.Y;
+             Mouse.X =Int ((x - rect.left) * scaleX);
+             Mouse.Y =Int ((y - rect.top) * scaleY); 
+             Input.OnMouseMove(Mouse.X,Mouse.Y);
             for (let j = 0; j < 8; j++)
             {
                 if (Input.touchList[j].index === touch.identifier)
