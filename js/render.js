@@ -484,12 +484,15 @@ class Shader
 
         this.Use();
 
-        console.log("Shader carregado com sucesso" );
+      //  console.log("Shader carregado com sucesso" );
 
     }
     Use()
     {
-        if (this.program === null) return;
+        if (this.program === null) 
+        {
+            console.error("Programa invalido");
+        }
         //gl.useProgram(this.program);
         Renderer.SetProgram(this.program);
 
@@ -518,6 +521,9 @@ class Shader
         {
           
             gl.uniform1f(this.uniforms[name], value);
+        } else 
+        {
+            console.warn("Uniform not found: " + name);
         }
     }
     SetUniform2f(name, x, y)
@@ -526,6 +532,9 @@ class Shader
         {
         
             gl.uniform2f(this.uniforms[name], x, y);
+        } else 
+        {
+            console.warn("Uniform not found: " + name);
         }
     }
     SetUniform3f(name, x, y, z)
@@ -534,6 +543,29 @@ class Shader
         {
         
             gl.uniform3f(this.uniforms[name], x, y, z);
+        } else 
+        {
+            console.warn("Uniform not found: " + name);
+        }
+    }
+    SetColor(name, color)
+    {
+        if (this.ContainsUniform(name))
+        {
+            gl.uniform4f(this.uniforms[name], color.r, color.g, color.b, color.a);
+        } else 
+        {
+            console.warn("Uniform not found: " + name);
+        }
+    }
+    SetColor3(name, color)
+    {
+        if (this.ContainsUniform(name))
+        {
+            gl.uniform3f(this.uniforms[name], color.r, color.g, color.b);
+        } else 
+        {
+            console.warn("Uniform not found: " + name);
         }
     }
     SetUniform4f(name, x, y, z, w)
@@ -542,6 +574,9 @@ class Shader
         {
       
             gl.uniform4f(this.uniforms[name], x, y, z, w);
+        } else 
+        {
+            console.warn("Uniform not found: " + name);
         }
     }
     SetInteger(name, value)
@@ -550,6 +585,9 @@ class Shader
         {
     
             gl.uniform1i(this.uniforms[name], value);
+        } else 
+        {
+            console.warn("Uniform not found: " + name);
         }
     }
     SetUniform4fv(name, value)
@@ -1038,6 +1076,7 @@ class Renderer
         this.shaders["solid"] = this.CreateColorShader();
         this.shaders["texture"] = this.CreateTextureShader();
         this.shaders["skybox"] = this.CreatSkyboxShader();
+        this.shaders["ambient"] = this.CreateAmbientShader();
         resolve();
         });
     }
@@ -2096,6 +2135,223 @@ class Renderer
 
         }
 
+        static CreateAmbientShader()
+        {
+
+            let VertexShader = `#version 300 es
+            precision mediump float;
+            layout (location = 0) in vec3 aPosition;
+            layout (location = 1) in vec2 aTexCoord;
+            layout (location = 2) in vec3 aNormal;
+
+            uniform mat4 uProjection;
+            uniform mat4 uView;
+            uniform mat4 uModel;
+            out vec2 TexCoord;
+            out vec3 FragPos;
+            out vec3 Normal;
+
+            void main()
+            {
+                TexCoord = aTexCoord;
+                FragPos = vec3(uModel * vec4(aPosition, 1.0));
+                Normal = mat3(transpose(inverse(uModel))) * aNormal;  
+               //Normal = aNormal;
+                gl_Position = uProjection * uView * vec4(FragPos, 1.0);
+
+              //  gl_Position = uProjection * uView * uModel * vec4(aPosition, 1.0);
+
+            }
+
+        `;
+
+        let FragmentShader = `#version 300 es
+        precision mediump float;
+       
+       
+        in vec2 TexCoord;
+        in vec3 FragPos;  
+        in vec3 Normal;  
+  
+
+        out vec4 FragColor;
+
+        struct Light
+        {
+            vec3 position;
+            vec3 ambient;
+            vec3 color;
+            float intensity;
+        };
+     
+       uniform Light light;
+       
+
+        uniform sampler2D uTexture0;
+        void main()
+        {
+            vec4 texColor =  texture(uTexture0, TexCoord) ;
+
+            // ambient
+  
+            vec3 ambient = light.intensity * light.ambient;
+            
+            // diffuse 
+            vec3 norm = normalize(Normal);
+            vec3 lightDir = normalize(light.position - FragPos);
+            float diff = max(dot(norm, lightDir), 0.0);
+            vec3 diffuse = diff * light.ambient;
+                    
+            vec3 result = (ambient + diffuse) * light.color;
+            FragColor = vec4(result, 1.0) + texColor;
+
+
+         //   vec4 ambientColour = vec4( color, 1.0f) * intensity ;
+           /// FragColor = texColor texture(uTexture0, TexCoord) * ambientColour;
+        }
+        `;
+
+        let shader = new Shader();
+        shader.Load(VertexShader, FragmentShader);
+        shader.Use();
+        shader.AddUniform("uProjection");
+        shader.AddUniform("uView");
+        shader.AddUniform("uModel");
+        
+        shader.AddUniform("light.color");
+        shader.AddUniform("light.intensity");
+        shader.AddUniform("light.ambient");
+        shader.AddUniform("light.position");
+
+        
+        shader.AddUniform("uTexture0");
+
+        shader.SetInteger("uTexture0", 0);
+
+        shader.SetFloat("light.intensity", 1.0);
+        shader.SetUniform3f("light.color", 1.0, 1.0, 1.0);
+        shader.SetUniform3f("light.ambient", 1.0, 1.0, 1.0);
+        shader.SetUniform3f("light.position", 0.0, 0.0, 0.0);
+        
+        
+
+        shader.UnSet();
+        return shader;
+
+        
+
+
+
+        }
+        static CreateAmbientDiffuseSpecularShader()
+        {
+            let VertexShader = `#version 300 es
+            precision mediump float;
+            layout (location = 0) in vec3 aPosition;
+            layout (location = 1) in vec2 aTexCoord;
+            layout (location = 2) in vec3 aNormal;
+
+            uniform mat4 uProjection;
+            uniform mat4 uView;
+            uniform mat4 uModel;
+
+            out vec2 TexCoord;
+            out vec3 Normal;
+            out vec3 FragPos;
+
+            void main()
+            {
+
+                TexCoord = aTexCoord;
+                FragPos = vec3(model * vec4(aPosition, 1.0));
+                Normal = aNormal;  
+                gl_Position = projection * view * vec4(FragPos, 1.0);
+
+            }
+
+        `;
+
+        let FragmentShader = `#version 300 es
+        precision mediump float;
+        
+        struct Material
+        {
+            vec3 ambient;
+            vec3 diffuse;
+            vec3 specular;    
+            float shininess;
+        }; 
+        
+        struct Light 
+        {
+            vec3 position;
+            vec3 ambient;
+            vec3 diffuse;
+            vec3 specular;
+        };
+        
+        in vec3 FragPos;  
+        in vec3 Normal;  
+          
+        uniform vec3 viewPos;
+        uniform Material material;
+        uniform Light light;
+        
+            void main()
+            {
+                // ambient
+                vec3 ambient = light.ambient * material.ambient;
+                
+                // diffuse 
+                vec3 norm = normalize(Normal);
+                vec3 lightDir = normalize(light.position - FragPos);
+                float diff = max(dot(norm, lightDir), 0.0);
+                vec3 diffuse = light.diffuse * (diff * material.diffuse);
+                
+                // specular
+                vec3 viewDir = normalize(viewPos - FragPos);
+                vec3 reflectDir = reflect(-lightDir, norm);  
+                float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+                vec3 specular = light.specular * (spec * material.specular);  
+                    
+                vec3 result = ambient + diffuse + specular;
+                FragColor = vec4(result, 1.0);
+            }
+
+  `;
+
+    let shader = new Shader();
+    shader.Load(VertexShader, FragmentShader);
+    shader.Use();
+    shader.AddUniform("uProjection");
+    shader.AddUniform("uView");
+    shader.AddUniform("uModel");
+    shader.AddUniform("viewPos");
+    shader.AddUniform("material.ambient");
+    shader.AddUniform("material.diffuse");
+    shader.AddUniform("material.specular");
+    shader.AddUniform("material.shininess");
+    shader.AddUniform("light.position");
+    shader.AddUniform("light.ambient");
+    shader.AddUniform("light.diffuse");
+    shader.AddUniform("light.specular");
+
+    shader.SetUniform3f("material.ambient", 1.0, 0.5, 0.31);
+    shader.SetUniform3f("material.diffuse", 1.0, 0.5, 0.31);
+    shader.SetUniform3f("material.specular", 0.5, 0.5, 0.5);
+    shader.SetUniform1f("material.shininess", 32.0);
+
+    shader.SetUniform3f("light.ambient", 0.2, 0.2, 0.2);
+    shader.SetUniform3f("light.diffuse", 0.5, 0.5, 0.5);
+    shader.SetUniform3f("light.specular", 1.0, 1.0, 1.0);
+    shader.SetUniform3f("light.position", 1.2, 1.0, 2.0);
+
+
+    shader.UnSet();
+
+    return shader;
+
+    }
 }
 //********************************************************************************************************************************************/
 

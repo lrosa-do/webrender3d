@@ -63,6 +63,7 @@ class Material
 
         Renderer.SetCullFace(true);
         Renderer.SetDepthFunc(gl.LESS);
+        return shader;
     }
     UnSet()
     {
@@ -86,21 +87,19 @@ class TextureMaterial extends Material
     }
     Set()
     {
-        super.Set();
-        // let shader = Renderer.GetShader(this.shaderName);
-        // Renderer.SetShader(shader);
-
-        if (this.texture !== null && this.texture !== undefined)
+         let s = super.Set();
+         if (this.texture !== null && this.texture !== undefined)
          Renderer.SetTexture(this.texture);
+         return s;
     }
 }
 
 class SkyBoxMaterial extends Material
 {
-    constructor(texture=null)
+    constructor()
     {
-        super();
-        this.texture = texture;
+        super(null);
+       
         this.shaderName = "skybox";
         this.attributes = [POSITION];
     }
@@ -112,21 +111,66 @@ class SkyBoxMaterial extends Material
     Set()
     {
 
-        super.Set();
-        let shader = Renderer.GetShader(this.shaderName);
-        Renderer.SetShader(shader);
-
-        shader.SetInteger("skybox", 0);
+        let shader = super.Set();
+      
+        shader.SetInteger("cubeTexture", 0);
         Renderer.SetCullFace(false);
         Renderer.SetDepthFunc(gl.LEQUAL);
         if (this.texture !== null && this.texture !== undefined)
         {
             gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture.id);
         }
+        return shader;
     }
     UnSet()
     {
         gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+    }
+}
+
+class AmbientMaterial extends TextureMaterial
+{
+    constructor(texture)
+    {
+        super(texture);
+        this.texture = texture;
+        this.shaderName = "ambient";
+        this.attributes = [POSITION,TEXTURE0,NORMAL];
+ 
+    }
+ 
+    Set()
+    {
+        let shader = super.Set();
+     
+        shader.SetFloat("light.intensity", 0.05);
+        shader.SetUniform3f("light.color", 0.5, 0.0, 1.0);
+        shader.SetUniform3f("light.ambient", 0.4, 0.4, 0.4);
+        shader.SetUniform3f("light.position", 1.2, 1.0, 2.0);
+
+        shader.SetInteger("uTexture0", 0);
+
+        return shader;
+    }
+}
+
+class DiffuseMaterial extends Material
+{
+    constructor()
+    {
+        super();
+        this.shaderName = "DIFFUSE";
+        this.attributes = [POSITION,TEXTURE0,NORMAL];
+        this.ambient = new Color(1.0, 0.5, 0.31);
+        this.diffuse = new Color(1.0, 0.5, 0.31);
+        this.specular = new Color(0.5, 0.5, 0.5);
+        this.shininess = 32;
+    }
+    Set()
+    {
+        super.Set();
+        let shader = Renderer.GetShader(this.shaderName);
+        Renderer.SetShader(shader);
     }
 }
 
@@ -175,12 +219,14 @@ class Surface
                 if (attribute === POSITION)
                 {
                     gl.vertexAttribPointer(index, 3, gl.FLOAT, false, 0, 0);
+                    console.log("Position");
     
                     offset += 3;
                 } else
                 if (attribute === NORMAL)
                 {
                     gl.vertexAttribPointer(index, 3, gl.FLOAT, false, 0, 0);
+                    console.log("Normal");
 
                     this.data |= NORMAL;     
                     this.normals    = [];
@@ -189,6 +235,7 @@ class Surface
                 if (attribute === COLOR)
                 {
                     gl.vertexAttribPointer(index, 4, gl.FLOAT, false, 0, 0);
+                    console.log("Color");   
                     this.colors     = [];
                     this.data  |= COLOR;
                     offset += 4;
@@ -196,6 +243,7 @@ class Surface
                 if (attribute === TEXTURE0)
                 {
                     gl.vertexAttribPointer(index, 2, gl.FLOAT, false, 0, 0);
+                    console.log("Texture0");
                     this.texcoord0  = [];
                     this.data |= TEXTURE0;
 
@@ -446,27 +494,37 @@ class Surface
     }
     VertexColor(index, r, g, b, a)
     {
-        if (this.data & COLOR === 0) return;
+        if (this.data & COLOR )
+        {
         let offset = index * 4;
         this.colors[offset] = r;
         this.colors[offset+1] = g;
         this.colors[offset+2] = b;
         this.colors[offset+3] = a;
         this.flags |= VBOCOLOR;
+        } else 
+        {
+            console.warn("Color not enabled");
+        }
     
 
     }
     ChangeColor(r,g,b,a)
     {
-        if (this.data & COLOR === 0) return;
-        for (let i = 0; i < this.vertices.length; i+=4)
+        if (this.data & COLOR)
         {
-            this.colors[i] = r;
-            this.colors[i+1] = g;
-            this.colors[i+2] = b;
-            this.colors[i+3] = a;
+            for (let i = 0; i < this.vertices.length; i+=4)
+            {
+                this.colors[i] = r;
+                this.colors[i+1] = g;
+                this.colors[i+2] = b;
+                this.colors[i+3] = a;
+            }
+            this.flags |= VBOCOLOR;
+        } else 
+        {
+            console.warn("Color not enabled");
         }
-        this.flags |= VBOCOLOR;
     }
 
     GetPosition(index)
@@ -524,7 +582,8 @@ class Surface
 
     CalculateNormals()
     {
-        if (this.data & NORMAL === 0) return;
+        if (this.data & NORMAL)
+        {
         for (let i = 0; i < this.vertices.length; i++)
         {
             this.normals.push(0);
@@ -534,20 +593,25 @@ class Surface
             let a = this.indices[i];
             let b = this.indices[i+1];
             let c = this.indices[i+2];
-            let v1 = this.GetVertex(a);
-            let v2 = this.GetVertex(b);
-            let v3 = this.GetVertex(c);
-            let normal = Vector3.Cross(Vector3.Subtract(v2,v1), Vector3.Subtract(v3,v1)).Normalize();
-            this.SetNormal(a, normal.x, normal.y, normal.z);
-            this.SetNormal(b, normal.x, normal.y, normal.z);
-            this.SetNormal(c, normal.x, normal.y, normal.z);
+            let v1 = this.GetPosition(a);
+            let v2 = this.GetPosition(b);
+            let v3 = this.GetPosition(c);
+            let normal =Vector3.Normalize(Vector3.Cross(Vector3.Sub(v2,v1), Vector3.Sub(v3,v1)));
+            this.VertexNormal(a, normal.x, normal.y, normal.z);
+            this.VertexNormal(b, normal.x, normal.y, normal.z);
+            this.VertexNormal(c, normal.x, normal.y, normal.z);
         }
         this.flags |= VBONORMAL;
+        }else 
+        {
+            console.warn("Normals not enabled");
+        }
 
     }
     CalculateSmothNormals()
     {   
-        if (this.data & NORMAL === 0) return;
+        if (this.data & NORMAL)
+        {
         let normals = [];
         for (let i = 0; i < this.vertices.length; i++)
         {
@@ -558,10 +622,10 @@ class Surface
             let a = this.indices[i];
             let b = this.indices[i+1];
             let c = this.indices[i+2];
-            let v1 = this.GetVertex(a);
-            let v2 = this.GetVertex(b);
-            let v3 = this.GetVertex(c);
-            let normal = Vector3.Cross(Vector3.Subtract(v2,v1), Vector3.Subtract(v3,v1)).Normalize();
+            let v1 = this.GetPosition(a);
+            let v2 = this.GetPosition(b);
+            let v3 = this.GetPosition(c);
+            let normal = Vector3.Normalize(Vector3.Cross(Vector3.Sub(v2,v1), Vector3.Sub(v3,v1)));
             normals[a] = Vector3.Add(normals[a], normal);
             normals[b] = Vector3.Add(normals[b], normal);
             normals[c] = Vector3.Add(normals[c], normal);
@@ -569,9 +633,13 @@ class Surface
         for (let i = 0; i < normals.length; i++)
         {
             let normal = normals[i].Normalize();
-            this.SetNormal(i, normal.x, normal.y, normal.z);
+            this.VertexNormal(i, normal.x, normal.y, normal.z);
         }
         this.flags |= VBONORMAL;
+      }else 
+        {
+            console.warn("Normals not enabled");
+        }
 
     }
 
@@ -607,6 +675,13 @@ class Mesh
     GetMaterial(index)
     {
         return this.materials[index];
+    }
+    CalculateNormals(smoth=false)
+    {
+        for (let i = 0; i < this.surfaces.length; i++)
+        {
+            if (smoth) this.surfaces[i].CalculateSmothNormals(); else   this.surfaces[i].CalculateNormals();
+        }
     }
     ContainsMaterial(material)
     {
