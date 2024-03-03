@@ -282,7 +282,9 @@ class Surface
         if (this.flags !== 0) this.Update();
         let count = this.indices.length;
         gl.bindVertexArray(this.vao);
-        gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_SHORT, 0);
+        //gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_SHORT, 0);
+        Renderer.DrawElements(gl.TRIANGLES, count,  0);
+
         gl.bindVertexArray(null);
     }
 

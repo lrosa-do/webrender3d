@@ -133,7 +133,8 @@ class Texture
     }
     Use()
     {
-       gl.bindTexture(gl.TEXTURE_2D, this.id);
+       //gl.bindTexture(gl.TEXTURE_2D, this.id);
+       Renderer.SetTexture(this);
      
     }
     Unbind()
@@ -435,7 +436,9 @@ class Shader
     Use()
     {
         if (this.program === null) return;
-        gl.useProgram(this.program);
+        //gl.useProgram(this.program);
+        Renderer.SetProgram(this.program);
+
     }
 
     UnSet()
@@ -803,7 +806,11 @@ class Renderer
 
         
    
-
+        this.numVertex = 0;
+        this.numDrawCalls = 0;
+        this.numTriangles = 0;
+        this.numTextures=0;
+        this.numPrograms=0;
 
 
         
@@ -847,7 +854,38 @@ class Renderer
 
       
     }
-
+    static ResetStats()
+    {
+        this.numVertex = 0;
+        this.numDrawCalls = 0;
+        this.numTriangles = 0;
+        this.numTextures=0;
+        this.numPrograms=0;
+        
+    }
+    static TraceGl()
+     {
+        var error = gl.getError();
+        if (error !== gl.NO_ERROR) {
+            console.error("Erro WebGL: " + error);
+        }
+     }
+     static DrawElements(mode, vertexCount,  offset)
+     {
+         gl.drawElements(mode, vertexCount, gl.UNSIGNED_SHORT, offset);
+         this.numDrawCalls++;
+         this.numTriangles += vertexCount / 3;
+         this.numVertex += vertexCount;
+     }
+ 
+     static DrawArrays(mode, first, count)
+     {
+         gl.drawArrays(mode, first, count);
+         this.numDrawCalls++;
+         this.numTriangles += count / 3;
+         this.numVertex += count;
+     }
+ 
     static GetWidth()
     {
         return this.width;
@@ -911,6 +949,7 @@ class Renderer
     static SetShader(shader)
     {
         shader.Use();
+      
         this.currentShader = shader;
         if (shader.ContainsUniform("uProjection"))
         {
@@ -1060,6 +1099,12 @@ class Renderer
 
     static Clear()
     {
+        this.numVertex = 0;
+        this.numDrawCalls = 0;
+        this.numTriangles = 0;
+        this.numTextures=0;
+        this.numPrograms=0;
+
         let flags = gl.COLOR_BUFFER_BIT;
         if (this.isDepthTestEnabled)
         {
@@ -1071,10 +1116,17 @@ class Renderer
 
     static SetProgram(program)
     {
-        if (this.currentProgram !== program)
+        if(this.currentProgram != program)
         {
+            if (program == null)
+            {
+                gl.useProgram(null);
+                this.currentProgram = null;
+                return;
+            }
             gl.useProgram(program);
-            this.currentProgram = program;
+             this.numPrograms++;
+             this.currentProgram = program;
         }
     }
 
@@ -1090,14 +1142,17 @@ class Renderer
 
     static SetTexture(texture)
     {      
-        
-
-      //  if (this.currentTexture !== texture)
+        if(this.currentTexture != texture)
         {
- 
-            texture.Use();
+            if(texture == null)
+            {
+                gl.bindTexture(gl.TEXTURE_2D, null);
+                this.currentTexture = null;
+                return;
+            }
+            gl.bindTexture(gl.TEXTURE_2D, texture.id);
+            this.numTextures++;
             this.currentTexture = texture;
-      
         }
     }  
 

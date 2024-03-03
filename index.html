@@ -72,6 +72,7 @@
         let proj =Matrix4.Perspective(45, width/height, 0.1, 1000);
         let identity=Matrix4.Identity();
         let lines =new LineBatch(4024);
+        let fill = new FillBatch(1024);
         
         let ortho = Matrix4.Ortho(0, width, height, 0, -10, 10);
 
@@ -159,10 +160,12 @@
      let lastX = 0;
     let lastY = 0;
 
-    let leftpad = new Rectangle(0,height-200, 200,200);
-    let rightpad = new Rectangle(width-200,height-200, 200,200);
-    let pitchUpPad = new Rectangle(0,0, 200,200);
-    let pitchDownPad = new Rectangle(width-200,0, 200,200);
+
+    VirtualPad.Add(Key.W,5,height-100,100,100);//
+    VirtualPad.Add(Key.S,width-100,height-100,100,100);
+
+    VirtualPad.Add(Key.A,5,height-220,100,100);
+    VirtualPad.Add(Key.D,width-100,height-220,100,100);
 
 
 
@@ -189,42 +192,34 @@
             camera.StrafeRight(speed);
         }
 
-        if (isMobile())
-        {
-            let isDown = Input.IsMouseDown(0);
-            let left   = leftpad.contains(Mouse.X, Mouse.Y);
-            let top    = pitchUpPad.contains(Mouse.X, Mouse.Y);
-            let right  = rightpad.contains(Mouse.X, Mouse.Y);
-            let bottom = pitchDownPad.contains(Mouse.X, Mouse.Y);
+        // if (isMobile())
+        // {
+           
+            
 
-            if (isDown && !left && !bottom && top)
-            {
-                camera.RotateY(speed *10);
-            }
+        //     if (left  )
+        //     {
+        //         camera.RotateX(-speed *15);
+        //     } else 
+        //     if (right )
+        //     {
+        //         camera.RotateX(speed *15);
+        //     }
 
-            if (left && isDown )
-            {
-                camera.RotateX(-speed *15);
-            } else 
-            if (right && isDown)
-            {
-                camera.RotateX(speed *15);
-            }
+        //     if (top)
+        //     {
+        //         camera.MoveForward(speed);
+        //     } else
+        //     if (bottom )
+        //     {
+        //         camera.MoveBackward(speed);
+        //     }
 
-            if (top && isDown && (!left && !right))
-            {
-                camera.MoveForward(speed);
-            } else
-            if (bottom && isDown && (!left && !right))
-            {
-                camera.MoveBackward(speed);
-            }
+        //         console.log (left, right, top, bottom)
 
-                console.log (left, right, top, bottom)
-
-        } else
+        // } else
           
-        {
+        // {
            if (Input.IsMouseDown(0))
             {
                
@@ -233,7 +228,7 @@
     
                 camera.Rotate(xoffset * 1, -yoffset *1);
             }
-        }
+        
       
        
         
@@ -284,10 +279,22 @@
 
         trasnform = Matrix4.Translate(2,1,0);
         Renderer.SetMatrix(MODEL_MATRIX, trasnform);
-    
+        sphere.Render();        
+
+        trasnform = Matrix4.Translate(2,1,1);
+        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
         sphere.Render();        
 
         trasnform = Matrix4.Translate(2,1,2);
+        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
+        sphere.Render();        
+        trasnform = Matrix4.Translate(2,1,3);
+        Renderer.SetMatrix(MODEL_MATRIX, trasnform);
+        sphere.Render();        
+
+
+
+        trasnform = Matrix4.Translate(2,1,-3);
         Renderer.SetMatrix(MODEL_MATRIX, trasnform);
         cylinder.Render();      
      
@@ -329,7 +336,9 @@
         Renderer.SetMatrix(VIEW_MATRIX, identity);
         Renderer.SetMatrix(MODEL_MATRIX, identity);
 
-
+        VirtualPad.Render(fill);
+      //  fill.Rectangle(0,0,200,200);
+        fill.Render();
 
 
       //  Renderer.SetCullFace(false);
@@ -337,21 +346,15 @@
         shader = Renderer.GetShader("texture");
         Renderer.SetShader(shader);
 
-   //     if (isMobile())
-        {
-            Renderer.SetColor4f(1,1,1,0.2);
-        Renderer.DrawRectangle(leftpad.x,leftpad.y, leftpad.width,leftpad.height);
-        Renderer.DrawRectangle(rightpad.x,rightpad.y, rightpad.width,rightpad.height);
-
-        Renderer.DrawRectangle(pitchUpPad.x,pitchUpPad.y, pitchUpPad.width,pitchUpPad.height);
-        Renderer.DrawRectangle(pitchDownPad.x,pitchDownPad.y, pitchDownPad.width,pitchDownPad.height);
-        }
-  
 
 
         font.SetColor(RED);
-        font.SetSize(32);
-        font.Print(20,100, "Luis Santos");
+        font.SetSize(18);
+        font.Print(100, 20, "FPS: "+Int(CurrentFPS ) );
+        font.Print(100, 40, "textures: "+Int(Renderer.numTextures) + " Draws " + Int(Renderer.numDrawCalls));
+        font.Print(100, 60, "Programs: "+Int(Renderer.numPrograms) + " Vertices: " + Int(Renderer.numVertex) + " Triangles: " + Int(Renderer.numTriangles));
+       
+
  
 
         font.Render();

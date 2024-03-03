@@ -104,6 +104,73 @@ class Key
     static BrowserHome = 172;
 }
 
+class KeyPad
+{
+    constructor(key,x,y,w,h)
+    {
+        this.key = key;
+        this.bound= new Rectangle(x,y,w,h);
+        this.active = false;
+    }
+}
+
+
+
+class VirtualPad
+{
+    static Init()
+    {
+        VirtualPad.keys = [];   
+    }
+
+    static Render(batch)
+    {
+        for (let i = 0; i < VirtualPad.keys.length; i++)
+        {
+            let pad = VirtualPad.keys[i];
+            if (pad.active)
+            {
+                batch.SetColor4f(1,1,1,0.9);
+                batch.Rectangle(VirtualPad.keys[i].bound.x, VirtualPad.keys[i].bound.y, VirtualPad.keys[i].bound.width, VirtualPad.keys[i].bound.height);
+
+            } else 
+            {
+                batch.SetColor4f(0.2,0.2,0.2,0.4);
+                batch.Rectangle(VirtualPad.keys[i].bound.x, VirtualPad.keys[i].bound.y, VirtualPad.keys[i].bound.width, VirtualPad.keys[i].bound.height);
+            }
+        }
+    }
+    static Add(key,x,y,w,h)
+    {
+        VirtualPad.keys.push(new KeyPad(key,x,y,w,h));
+    }
+
+    static OnMouseDown(x,y)
+    {
+        for (let i = 0; i < VirtualPad.keys.length; i++)
+        {
+            if (VirtualPad.keys[i].bound.contains(x,y))
+            {
+                Input.currentKeyState[VirtualPad.keys[i].key] = true;
+                VirtualPad.keys[i].active = true;
+              
+            }
+        }
+    }
+    static OnMouseUp(x,y)
+    {
+        for (let i = 0; i < VirtualPad.keys.length; i++)
+        {
+            if (VirtualPad.keys[i].bound.contains(x,y))
+            {
+                Input.currentKeyState[VirtualPad.keys[i].key] = false;
+                VirtualPad.keys[i].active = false;
+                
+            }
+        }
+    }
+  
+}
 class Mouse 
 {
     static Left = 0;
@@ -151,6 +218,7 @@ class Input
         window.addEventListener("touchstart", Input.TouchDown);
         window.addEventListener("touchend", Input.TouchUp);
         window.addEventListener("touchmove", Input.TouchMove);
+        VirtualPad.Init();
 
         Input.MouseWheelCallback = function(value) {}
 
@@ -237,6 +305,7 @@ class Input
             let touch = event.changedTouches[i];
             Input.touchList[i].x = touch.clientX;
             Input.touchList[i].y = touch.clientY;
+            VirtualPad.OnMouseDown(touch.clientX, touch.clientY);
             Input.OnMouseDown(touch.clientX, touch.clientY, i);
             Input.touchList[i].active = true;
             Input.touchList[i].index = touch.identifier;
@@ -263,6 +332,7 @@ class Input
         {
             let touch = event.changedTouches[i];
             Input.OnMouseUp(touch.clientX, touch.clientY, i);
+            VirtualPad.OnMouseUp(touch.clientX, touch.clientY);
             for (let j = 0; j < 8; j++)
             {
                 if (Input.touchList[j].index === touch.identifier)
@@ -317,6 +387,7 @@ class Input
         Mouse.Y = (event.clientY - rect.top) * scaleY; 
         Input.currentButtonState[event.button] = true; 
         Input.OnMouseDown(Mouse.X, Mouse.Y, event.button);
+        VirtualPad.OnMouseDown(Mouse.X, Mouse.Y);
     }
     static MouseUp(event)
     {
@@ -329,6 +400,7 @@ class Input
         Mouse.Y = (event.clientY - rect.top) * scaleY;
         Input.currentButtonState[event.button] = false;
         Input.OnMouseUp(Mouse.X, Mouse.Y, event.button);
+        VirtualPad.OnMouseUp(Mouse.X, Mouse.Y);
         
     }
     static MouseMove(event)
