@@ -507,6 +507,7 @@
     {
         constructor()
         {
+            Perlin.Init(123);
             this.chunks = [];
             this.loadedChunks ={};
             this.isDirty=false;
@@ -671,7 +672,7 @@
                     let height = 0;
                     for (let octave = 0; octave < 4; octave++) 
                     { 
-                        height += noise.simplex2((x + i) * freq, (z + j) * freq) * amplitude;
+                        height += Perlin.Simplex2D((x + i) * freq, (z + j) * freq) * amplitude;
 
                          freq *= 2; // Aumenta a frequência para cada octave
                          amplitude /= 2; // Reduz a amplitude para cada octave

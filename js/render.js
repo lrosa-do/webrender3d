@@ -850,7 +850,7 @@ class Light
         this.color    = new Color(1.0,0.2,0.2,1.0);
         this.ambient  = new Color(1.0,1.0,1.0,1.0);
         
-        this.intensity=0.2;
+        this.intensity=0.01;
 
     }
 }
