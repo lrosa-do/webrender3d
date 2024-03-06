@@ -109,6 +109,20 @@ class Assets
             audio.src = src;
         });
     } 
+
+    static async GetQueueTexture(name)
+    {
+        return new Promise(async (resolve) => 
+        {
+            while (this.textures[name] === undefined) 
+            {
+                console.log("Waiting for texture ...");
+                await new Promise(innerResolve => setTimeout(innerResolve, 500));
+            }
+            resolve(this.textures[name]);
+        });
+
+    }
     
     static async LoadTexture(name, src)
     {

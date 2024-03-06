@@ -134,7 +134,7 @@ class Texture
     Use()
     {
        //gl.bindTexture(gl.TEXTURE_2D, this.id);
-       Renderer.SetTexture(this);
+       Core.SetTexture(this);
      
     }
     Unbind()
@@ -255,7 +255,7 @@ class Texture2D extends Texture
             this.width = image.width;
             this.height = image.height;
             this.format = gl.RGBA;
-            console.log( `Textura carregada com sucesso: ${this.width}x${this.height}`);
+        //    console.log( `Textura carregada com sucesso: ${this.width}x${this.height}`);
 
             return true;
         } 
@@ -494,7 +494,7 @@ class Shader
             console.error("Programa invalido");
         }
         //gl.useProgram(this.program);
-        Renderer.SetProgram(this.program);
+        Core.SetProgram(this.program);
 
     }
 
@@ -861,7 +861,7 @@ class Light
 
 
 
-class Renderer 
+class Core 
 {
 
     static currentProgram = null;
@@ -1093,6 +1093,7 @@ class Renderer
         this.shaders["texture"] = this.CreateTextureShader();
         this.shaders["skybox"] = this.CreatSkyboxShader();
         this.shaders["ambient"] = this.CreateAmbientShader();
+        this.shaders["instance"] = this.CreateInstanceShader();
         resolve();
         });
     }
@@ -2368,6 +2369,64 @@ class Renderer
     return shader;
 
     }
+
+    static CreateInstanceShader()
+    {
+        let VertexShader = `#version 300 es
+        precision mediump float;
+        layout (location = 0) in vec3 aPosition;
+        layout (location = 1) in vec2 aTexCoord;
+        layout (location = 2) in vec3 aInstancePosition;
+
+        uniform mat4 uProjection;
+        uniform mat4 uView;
+        uniform mat4 uModel;
+        out vec2 TexCoord;
+    
+
+
+        void main()
+        {
+            TexCoord = aTexCoord;
+           
+
+            gl_Position =  uProjection * uView * uModel * vec4(aPosition + aInstancePosition, 1.0);
+        }
+        `;
+
+        let FragmentShaderTexture = `#version 300 es
+        precision mediump sampler2DArray;
+        precision mediump float;
+        in vec2 TexCoord;
+           
+        out vec4 FragColor;
+        uniform sampler2D uTexture0;
+    
+        void main()
+        {
+          
+            vec4 texColor =  texture(uTexture0, TexCoord) ;
+            FragColor =texColor;
+
+        }
+        `;
+
+        let shader = new Shader();
+        shader.Load(VertexShader, FragmentShaderTexture);
+        shader.Use();
+        shader.AddUniform("uProjection");
+        shader.AddUniform("uView");
+        shader.AddUniform("uModel");
+
+        shader.AddUniform("uTexture0");
+        shader.AddUniform("uAmbientColor");
+
+        shader.SetInteger("uTexture0", 0);
+        shader.SetUniform3f("uAmbientColor", 0.6, 0.6, 0.6);
+        shader.UnSet();
+        return shader;
+
+    }
 }
 //********************************************************************************************************************************************/
 
@@ -2505,7 +2564,7 @@ class Camera
 
          this.view.lookAt(this.position, this.direction, this.up);
 
-         Renderer.SetMatrix(VIEW_MATRIX, this.view);
+         Core.SetMatrix(VIEW_MATRIX, this.view);
    }
 
 

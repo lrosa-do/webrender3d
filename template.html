@@ -140,15 +140,15 @@
     {
     
 
-        Renderer.ResetStats();    
+        Core.ResetStats();    
         CurrentTime = Date.now();
         ElapsedTime = (CurrentTime - PreviousTime)/1000;
         PreviousTime = CurrentTime;
         LagTime += (ElapsedTime * 1000);
         FrameCounter++;
 
-        Renderer.elapsedTime = CurrentTime;
-        Renderer.deltaTime = ElapsedTime;
+        Core.elapsedTime = CurrentTime;
+        Core.deltaTime = ElapsedTime;
        
   
            

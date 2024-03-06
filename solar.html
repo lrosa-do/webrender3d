@@ -61,7 +61,7 @@
 
 
 
-        Renderer.Init(width, height);
+        Core.Init(width, height);
         Assets.Init();
         Input.Init();
 
@@ -103,16 +103,16 @@
 
         Assets.OnProgress = function(filename, progress, total)
         {
-            Renderer.Clear();
+            Core.Clear();
 
             
     
-            let shader = Renderer.GetShader("texture");
+            let shader = Core.GetShader("texture");
 
-            Renderer.SetMatrix(PROJECTION_MATRIX, ortho);
-            Renderer.SetMatrix(VIEW_MATRIX, identity);
-            Renderer.SetMatrix(MODEL_MATRIX, identity);
-            Renderer.SetShader(shader);
+            Core.SetMatrix(PROJECTION_MATRIX, ortho);
+            Core.SetMatrix(VIEW_MATRIX, identity);
+            Core.SetMatrix(MODEL_MATRIX, identity);
+            Core.SetShader(shader);
  
  
             font.SetColor(RED);
@@ -208,12 +208,12 @@
     function Render()
     {
       
-        Renderer.SetClearColor(0.0, 0.0, 0.4, 1.0);
-        Renderer.Clear();
+        Core.SetClearColor(0.0, 0.0, 0.4, 1.0);
+        Core.Clear();
 
 
-        Renderer.SetMatrix(PROJECTION_MATRIX, proj);
-        Renderer.SetMatrix(MODEL_MATRIX, identity);
+        Core.SetMatrix(PROJECTION_MATRIX, proj);
+        Core.SetMatrix(MODEL_MATRIX, identity);
 
 
         
@@ -223,9 +223,9 @@
 
 
 
-        shader = Renderer.GetShader("solid");
-        Renderer.SetMatrix(MODEL_MATRIX, identity);
-        Renderer.SetShader(shader);
+        shader = Core.GetShader("solid");
+        Core.SetMatrix(MODEL_MATRIX, identity);
+        Core.SetShader(shader);
         lines.Grid3D(10,10);
         lines.Render();
 
@@ -253,9 +253,9 @@
    
     
 
-        Renderer.SetMatrix(PROJECTION_MATRIX, ortho);
-        Renderer.SetMatrix(VIEW_MATRIX, identity);
-        Renderer.SetMatrix(MODEL_MATRIX, identity);
+        Core.SetMatrix(PROJECTION_MATRIX, ortho);
+        Core.SetMatrix(VIEW_MATRIX, identity);
+        Core.SetMatrix(MODEL_MATRIX, identity);
 
         VirtualPad.Render(fill);
         fill.SetColor(RED);
@@ -263,17 +263,17 @@
         fill.Render();
 
 
-      //  Renderer.SetCullFace(false);
+      //  Core.SetCullFace(false);
 
-        shader = Renderer.GetShader("texture");
-        Renderer.SetShader(shader);
-        Renderer.SetMatrix(MODEL_MATRIX, identity);
+        shader = Core.GetShader("texture");
+        Core.SetShader(shader);
+        Core.SetMatrix(MODEL_MATRIX, identity);
 
         font.SetColor(RED);
         font.SetSize(18);
         font.Print(100, 20, "FPS: "+Int(CurrentFPS ) );
-        font.Print(100, 40, "textures: "+Int(Renderer.numTextures) + " Draws " + Int(Renderer.numDrawCalls));
-        font.Print(100, 60, "Programs: "+Int(Renderer.numPrograms) + " Vertices: " + Int(Renderer.numVertex) + " Triangles: " + Int(Renderer.numTriangles));
+        font.Print(100, 40, "textures: "+Int(Core.numTextures) + " Draws " + Int(Core.numDrawCalls));
+        font.Print(100, 60, "Programs: "+Int(Core.numPrograms) + " Vertices: " + Int(Core.numVertex) + " Triangles: " + Int(Core.numTriangles));
 
     
 
@@ -281,7 +281,7 @@
 
         font.Render();
 
-    //    Renderer.SetCullFace(true);
+    //    Core.SetCullFace(true);
 
 
    

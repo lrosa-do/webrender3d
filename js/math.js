@@ -256,6 +256,53 @@ function CatmullRomSplineInterpolationClean(points, step = 0.2, distanceThreshol
   }
   
 
+
+
+
+function GenerateTextureAtlas(width, height, nbr,xPad=0.005,yPad=0.005,yBottom=false)
+{
+	let stepX = 1 / width;
+	let stepY = 1 / height;
+	let uvs = [];
+	const hPadding = xPad / width;
+	const vPadding = yPad / height;
+
+	for (let i = height; i > 0; i--) 
+	{
+		for (let j = 0; j < width; j++) 
+		{
+			if (yBottom)
+			{
+					uvs.push(new Vector2((j * stepX), (i * stepY)));
+					uvs.push(new Vector2((j * stepX + stepX), (i * stepY)));
+					uvs.push(new Vector2((j * stepX + stepX), (i * stepY - stepY)));
+					uvs.push(new Vector2((j * stepX), (i * stepY - stepY)));
+			} else 
+			{
+				
+					//add  small pixel stretch to avoid texture bleeding
+
+					uvs.push(new Vector2(j * stepX + hPadding, i * stepY + vPadding));
+
+					uvs.push(new Vector2((j + 1) * stepX - hPadding, i * stepY + vPadding));
+
+					uvs.push(new Vector2((j + 1) * stepX - hPadding, (i + 1) * stepY - vPadding));
+
+					uvs.push(new Vector2(j * stepX + hPadding, (i + 1) * stepY - vPadding));
+
+	
+			}
+		
+
+			if (uvs.length == nbr * 4)
+				break;
+		}
+	}
+	return uvs;
+
+}
+
+
 function Constrain(value, min, max)
 {
 	return Math.min(Math.max(value, min), max);
@@ -313,6 +360,7 @@ class Rectangle
             pointY <= this.y + this.height
         );
     }
+
 
     intersects(otherBound)
 	{

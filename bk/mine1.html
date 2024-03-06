@@ -77,14 +77,30 @@
         let ortho = Matrix4.Ortho(0, width, height, 0, -10, 10);
 
 
-        let font= new Font(1024);
+        let font= new Font(2024);
         font.Create(defaultFontImage, defaultFontData);
-        let cube = Mesh.CreateCube(1, new TextureMaterial());
-        let plane = Mesh.CreatePlane(10,10, 10,10, new TextureMaterial());
-        let sphere = Mesh.CreateSphere(32, 32, new TextureMaterial());
-        let cylinder = Mesh.CreateCylinder(32, 32, new TextureMaterial());
-        let cone = Mesh.CreateCone(32, 32, new TextureMaterial());
-        let torus = Mesh.CreateTorus(32, 32, 0.5, 1, new TextureMaterial());
+        let cube = Mesh.CreateCube(1, new AmbientMaterial());
+        cube.CalculateNormals(true);
+       
+
+        console.log("create plane");
+        let plane = Mesh.CreatePlane(10,10, 10,10, new AmbientMaterial());
+        plane.CalculateNormals(true);
+  
+
+
+        let torus = Mesh.CreateTorus(32, 32, 0.5, 1, new AmbientMaterial());
+        torus.CalculateNormals(true);
+
+        let skybox = new SkyBox();
+
+        let instance = new InstanceMesh(new InstanceMaterial());
+   
+ 
+
+        
+        
+        instance.BuildCube(1);
    
 
 
@@ -93,8 +109,22 @@
         Assets.AddTexture("metal", "assets/metal.png");
         Assets.AddTexture("cube", "assets/cube.png");
         Assets.AddTexture("marble", "assets/marble.jpg");
+        Assets.AddTexture("rock", "assets/rock.png");
+        
 
+         Assets.AddImage("skybox0",      "assets/skybox/right.jpg");
+         Assets.AddImage("skybox1",      "assets/skybox/left.jpg");
 
+         Assets.AddImage("skybox2",      "assets/skybox/top.jpg");
+         Assets.AddImage("skybox3",      "assets/skybox/bottom.jpg");
+
+         Assets.AddImage("skybox4",      "assets/skybox/front.jpg");
+         Assets.AddImage("skybox5",      "assets/skybox/back.jpg");
+        
+
+       
+
+        Assets.AddTextureCube("skybox","skybox");
 
 
        
@@ -112,10 +142,14 @@
         {
            cube.GetMaterial(0).SetTexture(Assets.GetTexture("container"));
            plane.GetMaterial(0).SetTexture(Assets.GetTexture("wall"));
-           sphere.GetMaterial(0).SetTexture(Assets.GetTexture("marble"));
-           cylinder.GetMaterial(0).SetTexture(Assets.GetTexture("metal"));
-           cone.GetMaterial(0).SetTexture(Assets.GetTexture("cube"));
-           torus.GetMaterial(0).SetTexture(Assets.GetTexture("container"));
+        //    sphere.GetMaterial(0).SetTexture(Assets.GetTexture("marble"));
+        //    cylinder.GetMaterial(0).SetTexture(Assets.GetTexture("metal"));
+        //    cone.GetMaterial(0).SetTexture(Assets.GetTexture("cube"));
+        //    torus.GetMaterial(0).SetTexture(Assets.GetTexture("container"));
+           skybox.SetTexture(Assets.GetTexture("skybox"));
+
+           instance.SetTexture(Assets.GetTexture("rock"));
+
         }
 
         Assets.OnProgress = function(filename, progress, total)
@@ -140,7 +174,7 @@
 
             font.Render();
 
-            console.log("Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
+         //   console.log("Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
         };
 
 
@@ -166,28 +200,113 @@
 
     VirtualPad.Add(Key.A,5,height-220,100,100);
     VirtualPad.Add(Key.D,width-100,height-220,100,100);
-    let angle=0;
 
-    function drawPlanet(fill, radius,  distanceFromSun,  rotationSpeed) 
-{
-            fill.Rotate((CurrentTime/1000) * rotationSpeed,0,1,0);
-            fill.Translate(distanceFromSun,0,0);
-            fill.Sphere(0,0,0,radius);
+    class Chunk
+    {
+        constructor(x,z)
+        {
+            this.center = new Vector3(x,0,z);
+            this.voxels=[]
+        }
+        Add(x,y,z)
+        {
+            this.voxels.push({x:x,y:y,z:z});
+        }
+        Render()
+        {
+            for (let i =0; i<this.voxels.length;i++)
+            {
+                let voxel = this.voxels[i];
+               
+                instance.Add(voxel.x,voxel.y,voxel.z);
+               
+            }
+        }
+    }
 
-  //  glRotatef(angle * rotationSpeed, 0.0f, 1.0f, 0.0f);
-  //  glTranslatef(distanceFromSun, 0.0f, 0.0f);
- //   glutSolidSphere(radius, 50, 50);
-}
+    const CHUNK_SIZE = 16;
+    const SIZE =  CHUNK_SIZE;
+
+    class World
+    {
+        constructor()
+        {
+            this.chunks = [];
+            this.positions ={};
+        }
+        Contains(x,z)
+        {
+            const key = `x_${x},z_${z}`;
+            return this.positions[key];
+        }
+        Add(c)
+        {
+
+          
+            this.chunks.push(c);
+        }
+
+        Position(x,z)
+        {
+            const key = `x_${x},z_${z}`;
+            this.positions[key] = true;
+        }
+
+        Render()
+        {
+            instance.Clear();
+            for (let i =0; i<this.chunks.length;i++)
+            {
+                this.chunks[i].Render();
+            }
+
+        }
+        Generate(px,pz)
+        {
+           
+
+            for (let x = (px-SIZE) / CHUNK_SIZE; x < (px+SIZE) / CHUNK_SIZE; x++)
+            {
+                  for (let z = (pz-SIZE) / CHUNK_SIZE; z < (pz+SIZE) / CHUNK_SIZE; z++)
+                    {
+                        let pos = new Vector3(x*CHUNK_SIZE,0,z*CHUNK_SIZE);
+                        if (!this.Contains(pos.x,pos.z))
+                        {
+                          
+                            
+                            let chunk = new Chunk(pos.x,0,pos.z);
+
+                            for (let i =0; i<CHUNK_SIZE;i++)
+                            {
+                                for (let j =0; j<CHUNK_SIZE;j++)
+                                {
+                                    let value = Math.random();
+                                    chunk.Add((x*CHUNK_SIZE)+i,value * 1.0, (z*CHUNK_SIZE)+j);
+                                    //                Vector3 voxelPos((x*CHUNK_SIZE)+i, value, (z*CHUNK_SIZE)+j);
+                                }
+                            }
+
+                            this.Add(chunk);
+                            this.Position(pos.x,pos.z);
+
+                        }                       
+                    }
+                
+            }
+           
+        }
+    }
+
+
+    let world = new World();
+    let player = new Vector3(0,0,0);
+
 
 
     function Update(dt)
     {
 
-        angle += 0.1;
-        if (angle > 360.0) 
-        {
-            angle -= 360.0;
-        }
+      
 
         let speed = 45 * dt;
 
@@ -218,6 +337,34 @@
     
                 camera.Rotate(xoffset * 1, -yoffset *1);
             }
+
+
+            if (Input.IsKeyDown(Key.ArrowLeft))
+            {
+                player.x -= speed;
+            }else
+            if (Input.IsKeyDown(Key.ArrowRight))
+            {
+                player.x += speed;
+            }
+
+            if (Input.IsKeyDown(Key.ArrowUp))
+            {
+                player.z -= speed;
+            }else
+            if (Input.IsKeyDown(Key.ArrowDown))
+            {
+                player.z += speed;
+            }
+
+            if (Input.IsKeyDown(Key.P))
+            {
+                player.y += speed;
+            }else
+            if (Input.IsKeyDown(Key.L))
+            {
+                player.y -= speed;
+            }
         
       
        
@@ -225,6 +372,7 @@
         
     }
 
+    let  lightPosition = Core.light.position;
  
 
 
@@ -238,6 +386,8 @@
         Core.SetMatrix(PROJECTION_MATRIX, proj);
         Core.SetMatrix(MODEL_MATRIX, identity);
 
+        let position = camera.position;
+
 
         
 
@@ -246,23 +396,18 @@
 
 
 
-
-        let shader = Core.GetShader("texture");
-        Core.SetShader(shader);
         Core.SetMatrix(MODEL_MATRIX, identity);
+        skybox.Render();
         plane.Render();
 
+    //    Core.SetCullFace(false);
 
-    //     let trasnform = Matrix4.Translate(-2,1,0);
-    //     let rotateX = Matrix4.RotateX(CurrentTime/1000);
-    //     let rotateY = Matrix4.RotateY(-CurrentTime/1000);
-    //     let rotateZ = Matrix4.RotateZ(-CurrentTime/1000);
+        world.Generate(player.x,player.z);
 
-    //     let rotate = Matrix4.Multiply(Matrix4.Multiply(rotateX,rotateY),rotateZ);
+        world.Render();
+        instance.Render();
 
-    //     trasnform = Matrix4.Multiply( rotate,trasnform);
 
-    //   //  Core.SetMatrix(MODEL_MATRIX, trasnform);
         
 
 
@@ -272,7 +417,6 @@
            // Core.Rotate(CurrentTime/1000,1,0,0);
             Core.Rotate(CurrentTime/1000,0,1,0);
          //   Core.Rotate(CurrentTime/1000,0,0,1);
-         //   Core.ApplyTransform();
             cube.Render();
         
 
@@ -282,22 +426,37 @@
             Core.Rotate(CurrentTime/1000,1,0,0);
             Core.Rotate(CurrentTime/1000,0,1,0);
             Core.Rotate(CurrentTime/1000,0,0,1);
-      //      Core.ApplyTransform();
             torus.Render();
     
 
         Core.PopMatrix();
 
 
+        lightPosition.x = Math.sin((CurrentTime/1000) *2.0);
+        lightPosition.y = Math.sin((CurrentTime/1000) *2.7);
+        lightPosition.z = Math.cos((CurrentTime/1000) *5.3);
+        
+
+        fill.SetColor3f(Core.light.color.r,Core.light.color.g,Core.light.color.b);
+        fill.Sphere(lightPosition.x,lightPosition.y,lightPosition.z,0.2);
+
+        fill.SetColor3f(1,1,1);
+        fill.Sphere(player.x,player.y,player.z,1);
+
+
+        lines.Grid3D(10,10);
 
 
         
-
-        shader = Core.GetShader("solid");
         Core.SetMatrix(MODEL_MATRIX, identity);
-        Core.SetShader(shader);
-        lines.Grid3D(10,10);
-        lines.Render();
+       
+   
+       
+        Core.light.position = lightPosition;
+       
+
+        fill.Render();
+        lines.Render();//draw all
 
     
 
@@ -308,35 +467,40 @@
    
     
 
+        VirtualPad.Render(fill);
+
+
+        fill.SetColor(RED);
+        fill.Rectangle(Mouse.X,Mouse.Y,20,20);
+
+        
+
         Core.SetMatrix(PROJECTION_MATRIX, ortho);
         Core.SetMatrix(VIEW_MATRIX, identity);
         Core.SetMatrix(MODEL_MATRIX, identity);
-
-        VirtualPad.Render(fill);
-        fill.SetColor(RED);
-        fill.Rectangle(Mouse.X,Mouse.Y,20,20);
-        fill.Render();
+        fill.Render();//draw all
 
 
 
-        shader = Core.GetShader("texture");
-        Core.SetShader(shader);
-        Core.SetMatrix(MODEL_MATRIX, identity);
 
         font.SetColor(RED);
-        font.SetSize(18);
+        font.SetSize(22);
         font.Print(100, 20, "FPS: "+Int(CurrentFPS ) );
         font.Print(100, 40, "textures: "+Int(Core.numTextures) + " Draws " + Int(Core.numDrawCalls));
         font.Print(100, 60, "Programs: "+Int(Core.numPrograms) + " Vertices: " + Int(Core.numVertex) + " Triangles: " + Int(Core.numTriangles));
 
+        font.Print(100, 80, "player X: "+player.x.toFixed(2) + " Y: "+player.y.toFixed(2) + " Z: "+player.z.toFixed(2));
+
+        font.Print(100, 100, "Count: "+instance.positions.length +" "+ world.positions.length  );
+
+
+
        // font.Print(50,100, ` Mouse X  ${Mouse.X}  Mouse Y ${Mouse.X}  Mouse Delta x ${Mouse.DeltaX}  Mouse Delta y ${Mouse.DeltaY}`);
-       
+       Core.SetCullFace(false);
 
- 
+        font.Render();//draw all
 
-        font.Render();
-
-    //    Core.SetCullFace(true);
+        Core.SetCullFace(true);
 
 
       //  Core.SetCullFace(false);

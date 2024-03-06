@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>WebGL </title>
+   
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+  
+
+    <script src="https://mrdoob.github.io/stats.js/build/stats.min.js"></script>
+    <script src="js/perlin.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/math.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/render.js"></script>
+    <script src="js/batch.js"></script>
+    <script src="js/mesh.js"></script>
+    <script src="js/assets.js"></script>
+
+    <script>
+
+
+
+
+        var canvas = document.getElementById("canvas");
+        var gl = canvas.getContext("webgl2",{alpha: true, depth: true, stencil: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: true, powerPreference: "high-performance"});
+
+        if (!gl) 
+        {
+            console.log("O WebGL não está disponível, seu navegador pode não suportar.");
+        }
+
+
+
+        var stats=new Stats();
+        document.body.appendChild(stats.dom);
+
+
+        let CurrentTime, ElapsedTime, PreviousTime = Date.now(), LagTime = 0;
+        let FPS = 60;          // Frames per second
+        let FrameTime = 1 / FPS;
+        let UpdateIntervalInSeconds = FrameTime;
+        let MPF = 1000 * FrameTime; // Milliseconds per frame.
+        let FrameCounter = 0;
+        let CurrentFPS = 0;
+        let UpdateTimeFPS = Date.now();
+
+        const pixelRatio = window.devicePixelRatio || 1;
+        canvas.width  = pixelRatio * window.innerWidth ;
+        canvas.height = pixelRatio * window.innerHeight;
+
+
+        var width = canvas.width;
+        var height = canvas.height;
+
+
+
+
+
+
+        Core.Init(width, height);
+        Assets.Init();
+        Input.Init();
+
+     
+  
+
+        let camera = new Camera(0,50,50,0,0,0);
+        let proj =Matrix4.Perspective(45, width/height, 0.1, 1000);
+        let identity=Matrix4.Identity();
+        let lines =new LineBatch(4024);
+        let fill = new FillBatch(4024);
+        
+        let ortho = Matrix4.Ortho(0, width, height, 0, -10, 10);
+
+
+        let font= new Font(2024);
+        font.Create(defaultFontImage, defaultFontData);
+        let cube = Mesh.CreateCube(1, new AmbientMaterial());
+        cube.CalculateNormals(true);
+       
+
+        console.log("create plane");
+        let plane = Mesh.CreatePlane(10,10, 10,10, new AmbientMaterial());
+        plane.CalculateNormals(true);
+  
+
+
+        let torus = Mesh.CreateTorus(32, 32, 0.5, 1, new AmbientMaterial());
+        torus.CalculateNormals(true);
+
+        let skybox = new SkyBox();
+
+        let instance = new InstanceMesh(new InstanceMaterial());
+   
+ 
+
+        
+        
+        instance.BuildCube(1);
+   
+
+
+         Assets.AddTexture("wall", "assets/wall.jpg");
+         Assets.AddTexture("container", "assets/container.png");
+        Assets.AddTexture("metal", "assets/metal.png");
+        Assets.AddTexture("cube", "assets/cube.png");
+        Assets.AddTexture("marble", "assets/marble.jpg");
+        Assets.AddTexture("rock", "assets/rock.png");
+        
+
+         Assets.AddImage("skybox0",      "assets/skybox/right.jpg");
+         Assets.AddImage("skybox1",      "assets/skybox/left.jpg");
+
+         Assets.AddImage("skybox2",      "assets/skybox/top.jpg");
+         Assets.AddImage("skybox3",      "assets/skybox/bottom.jpg");
+
+         Assets.AddImage("skybox4",      "assets/skybox/front.jpg");
+         Assets.AddImage("skybox5",      "assets/skybox/back.jpg");
+        
+
+       
+
+        Assets.AddTextureCube("skybox","skybox");
+
+
+       
+        async function Load()
+        {
+            await Assets.LoadAll();
+        }
+
+        Assets.OnLoad = function(filename)
+        {
+            
+        };
+
+        Assets.OnComplete = function()
+        {
+           cube.GetMaterial(0).SetTexture(Assets.GetTexture("container"));
+           plane.GetMaterial(0).SetTexture(Assets.GetTexture("wall"));
+        //    sphere.GetMaterial(0).SetTexture(Assets.GetTexture("marble"));
+        //    cylinder.GetMaterial(0).SetTexture(Assets.GetTexture("metal"));
+        //    cone.GetMaterial(0).SetTexture(Assets.GetTexture("cube"));
+        //    torus.GetMaterial(0).SetTexture(Assets.GetTexture("container"));
+           skybox.SetTexture(Assets.GetTexture("skybox"));
+
+           instance.SetTexture(Assets.GetTexture("container"));
+
+        }
+
+        Assets.OnProgress = function(filename, progress, total)
+        {
+            Core.Clear();
+
+            
+    
+            let shader = Core.GetShader("texture");
+
+            Core.SetMatrix(PROJECTION_MATRIX, ortho);
+            Core.SetMatrix(VIEW_MATRIX, identity);
+            Core.SetMatrix(MODEL_MATRIX, identity);
+            Core.SetShader(shader);
+ 
+ 
+            font.SetColor(RED);
+            font.SetSize(32);
+            font.SetAllignment(Allign.Left);
+            let w = font.GetTextWidth("Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
+            font.Print(width/2-(w/2),height/2, "Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
+
+            font.Render();
+
+         //   console.log("Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
+        };
+
+
+
+     
+
+
+
+
+    function Process()
+    {
+    
+     
+    }
+
+    let firstMouse = true;
+     let lastX = 0;
+    let lastY = 0;
+
+
+    VirtualPad.Add(Key.W,5,height-100,100,100);//
+    VirtualPad.Add(Key.S,width-100,height-100,100,100);
+
+    VirtualPad.Add(Key.A,5,height-220,100,100);
+    VirtualPad.Add(Key.D,width-100,height-220,100,100);
+
+
+    const chunkSize = 10;
+
+
+    class Chunk
+    {
+        constructor(x,z)
+        {
+            this.center = new Vector3(x,0,z);
+            this.voxels=[]
+            this.active = false;
+            this.grid = new Array(chunkSize );
+
+            for (let i = 0; i < chunkSize; i++) 
+            {
+                this.grid[i] = new Array(chunkSize);
+                 for (let j = 0; j < chunkSize; j++) 
+                {
+                    this.grid[i][j] = new Array(chunkSize);
+                   
+                }
+            }
+
+            for (let i = 0; i < chunkSize; i++) 
+            {
+                for (let j = 0; j < chunkSize; j++) 
+                {
+                    for (let k = 0; k < chunkSize; k++) 
+                    {
+                        this.grid[i][j][k] = {id:0,altura:0};
+                    }
+                }
+            }
+
+        }
+        Add(x,y,z)
+        {
+           this.voxels.push({x:x,y:y,z:z});
+        }
+        Set(x,y,z,id,height)
+        {
+            this.grid[x][y][z] = {id:id,height:height};
+        }
+        Build()
+        {
+            for (let i = 0; i < chunkSize; i++) 
+            {
+                for (let j = 0; j < chunkSize; j++) 
+                {
+                    for (let k = 0; k < chunkSize; k++) 
+                    {
+                        let voxel = this.grid[i][k][j];
+                        if (voxel.id > 0 && k < (chunkSize *(voxel.height+1)) )
+                        {
+                            this.Add(i + this.center.x , k  , j+this.center.z);
+                        }
+                    }
+                }
+            }
+        }
+        HasSolidNeighbour(x,y,z)
+        {
+            if (x<0 || x>=chunkSize || 
+                y<0 || y>=chunkSize || 
+                z<0 || z>=chunkSize)
+            {
+                return false;
+            }
+
+            return this.grid[x][y][z].id>0;
+            
+        }
+        Contains(x,y,z)
+        {
+            return this.grid[x][y][z].id > 0;
+        }
+        Render(player)
+        {
+
+            let distance = Vector3.Distance(this.center,player);
+            if (distance > 50)
+            {
+              //  return;
+            }
+
+            for (let i =0; i<this.voxels.length;i++)
+            {
+                let voxel = this.voxels[i];
+                instance.Add(voxel.x,voxel.y,voxel.z);
+            }
+        }
+    }
+
+
+
+    class World
+    {
+        constructor()
+        {
+            this.chunks = [];
+            this.loadedChunks ={};
+        }
+       
+
+        Render(player)
+        {
+            instance.Clear();
+            for (let i =0; i<this.chunks.length;i++)
+            {
+                this.chunks[i].Render(player);
+            }
+
+        }
+
+        loadChunk(x, z) 
+        {
+            if (!this.loadedChunks[`${x}_${z}`]) 
+            {
+                let chunk = this.createChunk(x, z);
+                this.loadedChunks[`${x}_${z}`] = chunk;
+                this.chunks.push(chunk);
+            }
+        }
+
+        createChunk(x, z) 
+        {
+            let chunk = new Chunk(x,z);
+            for (let i = 0; i < chunkSize; i++) 
+            {
+                for (let j = 0; j < chunkSize; j++) 
+                {
+                    let value = Math.floor(Math.random()*5);
+                    let freq = 0.02;
+                        
+                     const height = noise.simplex2((x + i) * freq, (z + j) *freq);
+
+                     const altura = (chunkSize *(height+1)); 
+
+                    for (let k = 0; k < Math.floor(chunkSize * (height + 1)); k++) 
+                //  for (let k = 0; k < chunkSize ; k++) 
+                  {
+                      
+                       // chunk.Set(i, k, j,  1, height);
+                        chunk.Add(x + i, 1+ k, z + j);
+                       
+                    }
+
+                 }
+            }
+        //    chunk.Build();
+            return chunk;
+            
+        }
+
+        Generate(px,pz)
+        {
+
+             const playerChunkX = Math.floor(px / chunkSize);
+             const playerChunkZ = Math.floor(pz / chunkSize);
+
+
+            //  const playerChunkX = Math.floor((px + chunkSize / 2) / chunkSize);
+            //  const playerChunkZ = Math.floor((pz + chunkSize / 2) / chunkSize);
+
+
+             const updateRadius = 1; // Quantos chunks à frente/carregar
+
+                    
+            for (let x = -updateRadius; x <= updateRadius; x++) 
+            {
+                for (let z = -updateRadius; z <= updateRadius; z++) 
+                {
+                    this.loadChunk((playerChunkX + x) * chunkSize, (playerChunkZ + z) * chunkSize);
+                }
+            }
+           
+          
+        }
+    }
+
+
+    let world = new World();
+    let player = new Vector3(0,0,0);
+    // world.Generate(0,0);
+
+    // world.Generate(30 +5,0);
+    
+   // world.Generate( chunkSize *2,player.z);
+    
+
+
+
+    function Update(dt)
+    {
+
+      
+
+        let speed = 45 * dt;
+
+        if(Input.IsKeyDown(Key.W))
+        {
+            camera.MoveForward(speed);
+        }else 
+        if(Input.IsKeyDown(Key.S))
+        {
+            camera.MoveBackward(speed);
+        }
+
+        if(Input.IsKeyDown(Key.A))
+        {
+            camera.StrafeLeft(speed);
+        }else
+        if(Input.IsKeyDown(Key.D))
+        {
+            camera.StrafeRight(speed);
+        }
+
+   
+           if (Input.IsMouseDown(0) && !VirtualPad.ActiveKeys())
+            {
+               
+                let xoffset = Mouse.DeltaX;
+                let yoffset = Mouse.DeltaY; 
+    
+                camera.Rotate(xoffset * 1, -yoffset *1);
+            }
+
+
+            if (Input.IsKeyDown(Key.ArrowLeft))
+            {
+                player.x -= speed;
+            }else
+            if (Input.IsKeyDown(Key.ArrowRight))
+            {
+                player.x += speed;
+            }
+
+            if (Input.IsKeyDown(Key.ArrowUp))
+            {
+                player.z -= speed;
+            }else
+            if (Input.IsKeyDown(Key.ArrowDown))
+            {
+                player.z += speed;
+            }
+
+            if (Input.IsKeyDown(Key.P))
+            {
+                player.y += speed;
+            }else
+            if (Input.IsKeyDown(Key.L))
+            {
+                player.y -= speed;
+            }
+        
+      
+       
+        
+        
+    }
+
+    let  lightPosition = Core.light.position;
+ 
+
+
+    function Render()
+    {
+      
+        Core.SetClearColor(0.0, 0.0, 0.4, 1.0);
+        Core.Clear();
+
+
+        Core.SetMatrix(PROJECTION_MATRIX, proj);
+        Core.SetMatrix(MODEL_MATRIX, identity);
+
+        let position = camera.position;
+
+
+        
+
+
+        camera.Update();
+
+
+
+        Core.SetMatrix(MODEL_MATRIX, identity);
+        skybox.Render();
+        plane.Render();
+
+    //    Core.SetCullFace(false);
+
+    world.Generate( player.x,player.z);
+
+        world.Render(player);
+        instance.Render();
+
+
+        
+
+
+       Core.PushMatrix();
+       Core.Identity();
+            Core.Translate(0,1,0);
+           // Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+         //   Core.Rotate(CurrentTime/1000,0,0,1);
+            cube.Render();
+        
+
+
+
+            Core.Translate(0,1,-5);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
+            torus.Render();
+    
+
+        Core.PopMatrix();
+
+
+        lightPosition.x = Math.sin((CurrentTime/1000) *2.0);
+        lightPosition.y = Math.sin((CurrentTime/1000) *2.7);
+        lightPosition.z = Math.cos((CurrentTime/1000) *5.3);
+        
+
+        fill.SetColor3f(Core.light.color.r,Core.light.color.g,Core.light.color.b);
+        fill.Sphere(lightPosition.x,lightPosition.y,lightPosition.z,0.2);
+
+        fill.SetColor3f(1,1,1);
+        fill.Sphere(player.x,player.y,player.z,1);
+
+
+        lines.Grid3D(10,10);
+
+
+        
+        Core.SetMatrix(MODEL_MATRIX, identity);
+       
+   
+       
+        Core.light.position = lightPosition;
+       
+
+        fill.Render();
+        lines.Render();//draw all
+
+    
+
+
+
+        
+
+   
+    
+
+        VirtualPad.Render(fill);
+
+
+        fill.SetColor(RED);
+        fill.Rectangle(Mouse.X,Mouse.Y,20,20);
+
+        
+
+        Core.SetMatrix(PROJECTION_MATRIX, ortho);
+        Core.SetMatrix(VIEW_MATRIX, identity);
+        Core.SetMatrix(MODEL_MATRIX, identity);
+        fill.Render();//draw all
+
+
+
+        Core.SetDepthTest(false);
+
+        font.SetColor(RED);
+        font.SetSize(22);
+        font.Print(100, 20, "FPS: "+Int(CurrentFPS ) );
+        font.Print(100, 40, "textures: "+Int(Core.numTextures) + " Draws " + Int(Core.numDrawCalls));
+        font.Print(100, 60, "Programs: "+Int(Core.numPrograms) + " Vertices: " + Int(Core.numVertex) + " Triangles: " + Int(Core.numTriangles));
+
+        font.Print(100, 80, "player X: "+player.x.toFixed(2) + " Y: "+player.y.toFixed(2) + " Z: "+player.z.toFixed(2));
+
+        font.Print(100, 120, "Count: "+instance.positions.length +" "+ world.chunks.length  );
+
+
+
+       // font.Print(50,100, ` Mouse X  ${Mouse.X}  Mouse Y ${Mouse.X}  Mouse Delta x ${Mouse.DeltaX}  Mouse Delta y ${Mouse.DeltaY}`);
+    //   Core.SetCullFace(false);
+
+        font.Render();//draw all
+
+        Core.SetCullFace(true);
+        Core.SetDepthTest(true);
+
+
+      //  Core.SetCullFace(false);
+   
+
+    }
+
+
+
+
+    function GameLoop () 
+    {
+    
+
+       
+        CurrentTime = Date.now();
+        ElapsedTime = (CurrentTime - PreviousTime)/1000;
+        PreviousTime = CurrentTime;
+        LagTime += (ElapsedTime * 1000);
+        FrameCounter++;
+
+
+       
+  
+           
+        Update(ElapsedTime);
+        while (LagTime >= MPF) 
+        {
+            LagTime -= MPF;
+            Process();
+        }
+
+        Render();   
+        Input.Update();
+        if (CurrentTime - UpdateTimeFPS > 1000) 
+        {
+            CurrentFPS = FrameCounter;
+            FrameCounter = 0;
+            UpdateTimeFPS = Date.now();
+        }
+
+    };
+
+
+
+
+
+
+    window.onresize = function()
+    {
+        console.log("resize");
+        let width  =  window.innerWidth;
+        let height =  window.innerHeight;
+    }
+
+    window.onload = function()
+    {
+        console.log("onload");
+        Load().then(() =>
+        {
+            console.log("Start Game");
+            Game();
+        });
+
+    };
+
+
+
+
+    function Game()
+    {
+        GameLoop();
+        stats.update();
+        requestAnimationFrame(Game);
+    }
+
+    </script>
+
+
+ 
+</body>
+</html>

@@ -44,7 +44,7 @@ class Batch
         this.colora=1.0;
         this.mode = -1;
         this.depth=0;
-        this.clip = new Rectangle(0, 0, Renderer.GetWidth(), Renderer.GetHeight());
+        this.clip = new Rectangle(0, 0, Core.GetWidth(), Core.GetHeight());
         this.useClip = false;
    
         this.transform = new Matrix4();
@@ -230,8 +230,8 @@ class Batch
     Render()
     {
         
-        let shader = Renderer.GetShader("solid");
-        Renderer.SetShader(shader);
+        let shader = Core.GetShader("solid");
+        Core.SetShader(shader);
         this.Flush();   
     }
 
@@ -271,7 +271,7 @@ class LineBatch extends Batch
    
         gl.bindVertexArray(this.VAO);
  
-        Renderer.DrawArrays(LINES, 0, count);
+        Core.DrawArrays(LINES, 0, count);
 
         gl.bindVertexArray(null);
 
@@ -1004,7 +1004,7 @@ Flush()
 {
  
     if (this.indexCount === 0) return;
-    Renderer.SetBlend(true);
+    Core.SetBlend(true);
   
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.vertices.subarray(0, this.indexCount));
@@ -1015,7 +1015,7 @@ Flush()
 
     gl.bindVertexArray(this.VAO);
 
-    Renderer.DrawArrays(TRIANGLES, 0, count);
+    Core.DrawArrays(TRIANGLES, 0, count);
 
     gl.bindVertexArray(null);
 
@@ -1495,9 +1495,9 @@ Flush()
  
     if (this.indexCount === 0) return;
     if (this.mode === -1) return;
-    Renderer.SetSolidRender();
+    Core.SetSolidRender();
 
-    Renderer.EnableBlend(true);
+    Core.EnableBlend(true);
 
    
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
@@ -1513,7 +1513,7 @@ Flush()
 
     gl.bindVertexArray(this.VAO);
 
-    Renderer.DrawArrays(this.mode, 0, count);
+    Core.DrawArrays(this.mode, 0, count);
 
     gl.bindVertexArray(null);
 
@@ -1927,7 +1927,7 @@ constructor(capacity)
     this.quads.push(new Quad());
     this.quads.push(new Quad());
 
-    this.clip = new Rectangle(0, 0, Renderer.GetWidth(), Renderer.GetHeight());
+    this.clip = new Rectangle(0, 0, Core.GetWidth(), Core.GetHeight());
     this.useClip = false;
 
 
@@ -1952,7 +1952,7 @@ constructor(capacity)
     this.flip_x = false;
     this.flip_y = false;
     
-    this.defaultTexture  = Renderer.defaultTexture;
+    this.defaultTexture  = Core.defaultTexture;
     let k=0;
     for (let i = 0; i < this.maxElemnts ; i+=6)
     {
@@ -2054,9 +2054,9 @@ Flush()
    if (this.vertexCount === 0) return;
 
  
-    Renderer.EnableBlend(true);
-    Renderer.SetBlendMode(BlendMode.Normal);
-    Renderer.SetTextureShader();
+    Core.EnableBlend(true);
+    Core.SetBlendMode(BlendMode.Normal);
+    Core.SetTextureShader();
 
    
    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
@@ -2071,7 +2071,7 @@ Flush()
 
     gl.bindVertexArray(this.VAO);
     this.currentBaseTexture.Use();
-    Renderer.DrawElements(gl.TRIANGLES, (this.vertexCount / 4) * 6, 0);
+    Core.DrawElements(gl.TRIANGLES, (this.vertexCount / 4) * 6, 0);
 
     gl.bindVertexArray(null);
 
@@ -3509,9 +3509,9 @@ class PolySprite
         };
 
    
-        Renderer.EnableBlend(true);
-        Renderer.SetBlendMode(BlendMode.Normal);
-        Renderer.SetTextureShader();
+        Core.EnableBlend(true);
+        Core.SetBlendMode(BlendMode.Normal);
+        Core.SetTextureShader();
      
         this.texture.Use();
      
@@ -4050,9 +4050,9 @@ class SpriteCloud
         };
 
    
-        Renderer.EnableBlend(true);
-        Renderer.SetBlendMode(BlendMode.Normal);
-        Renderer.SetTextureShader();
+        Core.EnableBlend(true);
+        Core.SetBlendMode(BlendMode.Normal);
+        Core.SetTextureShader();
      
         this.texture.Use();
      
@@ -4060,7 +4060,7 @@ class SpriteCloud
 
         gl.bindVertexArray(this.vertexArray);
        
-        Renderer.DrawElements(gl.TRIANGLES, (this.vertexCount / 4) * 6,  0);
+        Core.DrawElements(gl.TRIANGLES, (this.vertexCount / 4) * 6,  0);
 
      //   console.log("DrawElements " + (this.vertexCount / 4));
 
@@ -4277,7 +4277,7 @@ class TileLayer
         this.tileHeight = tileHeight;
         this.width = width;
         this.height = height;
-        this.texture =  Renderer.defaultTexture;
+        this.texture =  Core.defaultTexture;
        
    
 
@@ -4421,7 +4421,7 @@ class Font
         this.quads.push(new Quad());
         this.quads.push(new Quad());
     
-        this.clip = new Rectangle(0, 0, Renderer.GetWidth(), Renderer.GetHeight());
+        this.clip = new Rectangle(0, 0, Core.GetWidth(), Core.GetHeight());
         this.useClip = false;
         this.flip_x = false;
         this.flip_y = false;
@@ -4563,13 +4563,13 @@ class Font
        if (this.vertexCount === 0) return;
 
      
-        Renderer.SetBlend(true);
-        Renderer.SetBlendMode(BlendMode.Normal);
+        Core.SetBlend(true);
+        Core.SetBlendMode(BlendMode.Normal);
 
              
 
-        let shader = Renderer.GetShader("texture");
-        Renderer.SetShader(shader);
+        let shader = Core.GetShader("texture");
+        Core.SetShader(shader);
 
        
  
@@ -4583,7 +4583,7 @@ class Font
 
       
 
-        Renderer.SetTexture(this.texture);
+        Core.SetTexture(this.texture);
       //  this.texture.Use();
         gl.bindVertexArray(this.VAO);
         gl.drawElements(gl.TRIANGLES, (this.vertexCount / 4) * 6, gl.UNSIGNED_SHORT, 0);

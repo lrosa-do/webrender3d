@@ -45,7 +45,15 @@ const TEXTURE1  = 0x0010;
 const TANGENT   = 0x0020;
 const BITANGENT = 0x0040;
 
-
+const FaceSides = 
+{
+    FRONT: 0,
+    BACK: 1,
+    LEFT: 2,
+    RIGHT: 3,
+    TOP: 4,
+    BOTTOM: 5
+};
 
 class Material
 {
@@ -58,11 +66,11 @@ class Material
     }
     Set()
     {
-        let shader = Renderer.GetShader(this.shaderName);
-        Renderer.SetShader(shader);
+        let shader = Core.GetShader(this.shaderName);
+        Core.SetShader(shader);
 
-        Renderer.SetCullFace(true);
-        Renderer.SetDepthFunc(gl.LESS);
+        Core.SetCullFace(true);
+        Core.SetDepthFunc(gl.LESS);
         return shader;
     }
     UnSet()
@@ -89,7 +97,8 @@ class TextureMaterial extends Material
     {
          let s = super.Set();
          if (this.texture !== null && this.texture !== undefined)
-         Renderer.SetTexture(this.texture);
+         Core.SetTexture(this.texture);
+         s.SetInteger("uTexture0", 0);
          return s;
     }
 }
@@ -114,8 +123,8 @@ class SkyBoxMaterial extends Material
         let shader = super.Set();
       
         shader.SetInteger("cubeTexture", 0);
-        Renderer.SetCullFace(false);
-        Renderer.SetDepthFunc(gl.LEQUAL);
+        Core.SetCullFace(false);
+        Core.SetDepthFunc(gl.LEQUAL);
         if (this.texture !== null && this.texture !== undefined)
         {
             gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture.id);
@@ -143,12 +152,12 @@ class AmbientMaterial extends TextureMaterial
     {
         let shader = super.Set();
      
-        shader.SetFloat("light.intensity", Renderer.light.intensity);
-        shader.SetUniform3f("light.color", Renderer.light.color.r,Renderer.light.color.g,Renderer.light.color.b);
-        shader.SetUniform3f("light.ambient", Renderer.light.ambient.r,Renderer.light.ambient.g,Renderer.light.ambient.b);
-        shader.SetUniform3f("light.position",  Renderer.light.position.x, Renderer.light.position.y, Renderer.light.position.z);
+        shader.SetFloat("light.intensity", Core.light.intensity);
+        shader.SetUniform3f("light.color", Core.light.color.r,Core.light.color.g,Core.light.color.b);
+        shader.SetUniform3f("light.ambient", Core.light.ambient.r,Core.light.ambient.g,Core.light.ambient.b);
+        shader.SetUniform3f("light.position",  Core.light.position.x, Core.light.position.y, Core.light.position.z);
 
-        shader.SetInteger("uTexture0", 0);
+  
 
         return shader;
     }
@@ -169,8 +178,25 @@ class DiffuseMaterial extends Material
     Set()
     {
         super.Set();
-        let shader = Renderer.GetShader(this.shaderName);
-        Renderer.SetShader(shader);
+        let shader = Core.GetShader(this.shaderName);
+        Core.SetShader(shader);
+    }
+}
+
+class InstanceMaterial extends TextureMaterial
+{
+    constructor(texture)
+    {
+        super(texture);
+        this.texture = texture;
+        this.shaderName = "instance";
+    }
+ 
+    Set()
+    {
+        let shader = super.Set();
+        shader.SetUniform3f("uAmbientColor", Core.light.ambient.r,Core.light.ambient.g,Core.light.ambient.b);
+        return shader;
     }
 }
 
@@ -187,6 +213,7 @@ class Surface
         this.vbo = [];
         this.material=0;
         this.no_verts = 0;
+        this.vertexIndex = 0;
     
         this.vao = 0;
         if (attributes.length === 0)
@@ -219,14 +246,14 @@ class Surface
                 if (attribute === POSITION)
                 {
                     gl.vertexAttribPointer(index, 3, gl.FLOAT, false, 0, 0);
-                    console.log("Position");
+                //    console.log("Position");
     
                     offset += 3;
                 } else
                 if (attribute === NORMAL)
                 {
                     gl.vertexAttribPointer(index, 3, gl.FLOAT, false, 0, 0);
-                    console.log("Normal");
+                 //   console.log("Normal");
 
                     this.data |= NORMAL;     
                     this.normals    = [];
@@ -235,7 +262,7 @@ class Surface
                 if (attribute === COLOR)
                 {
                     gl.vertexAttribPointer(index, 4, gl.FLOAT, false, 0, 0);
-                    console.log("Color");   
+                   // console.log("Color");   
                     this.colors     = [];
                     this.data  |= COLOR;
                     offset += 4;
@@ -243,7 +270,7 @@ class Surface
                 if (attribute === TEXTURE0)
                 {
                     gl.vertexAttribPointer(index, 2, gl.FLOAT, false, 0, 0);
-                    console.log("Texture0");
+                  //  console.log("Texture0");
                     this.texcoord0  = [];
                     this.data |= TEXTURE0;
 
@@ -341,7 +368,7 @@ class Surface
                     gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo[index]);
                     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.tangents), state);
                     this.flags &= ~VBOTANGENT;
-                    console.log("update Tangent");
+                 //   console.log("update Tangent");
                 }
             } else
             if (attribute === BITANGENT)
@@ -351,7 +378,7 @@ class Surface
                     gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo[index]);
                     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.bitangents), state);
                     this.flags &= ~VBOBITANGENT;
-                    console.log("update Bitangent");
+                 //   console.log("update Bitangent");
                 }
             }
         
@@ -363,11 +390,44 @@ class Surface
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ebo);
             gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indices), state);
             this.flags &= ~VBOINDEX;
-            console.log("update Indices");
+           // console.log("update Indices");
         }
         this.flags = 0;
     }
 
+    Clear()
+    {
+
+        this.no_verts=0;
+        this.vertices=[];
+        this.indices=[];
+        this.flags |= VBOVERTEX;
+
+        if (this.data & NORMAL)
+        {
+                this.normals=[];
+                this.flags |= VBONORMAL;
+        }
+
+        if (this.data & COLOR)
+        {
+                this.colors=[];
+                this.flags |= VBOCOLOR;
+        }
+
+        if (this.data & TEXTURE0)
+        {
+            this.texcoord0=[];
+            this.flags |= VBOTEXTURE0;
+        }
+
+        if (this.data & TEXTURE1)
+        {
+            this.texcoord1=[];
+            this.flags |= VBOTEXTURE1;
+        }
+        
+    }
     Render()
     {
         if (this.indices.length === 0) return;
@@ -375,7 +435,7 @@ class Surface
         let count = this.indices.length;
         gl.bindVertexArray(this.vao);
         //gl.drawElements(gl.TRIANGLES, count, gl.UNSIGNED_SHORT, 0);
-        Renderer.DrawElements(gl.TRIANGLES, count,  0);
+        Core.DrawElements(gl.TRIANGLES, count,  0);
 
         gl.bindVertexArray(null);
     }
@@ -418,23 +478,18 @@ class Surface
             this.texcoord1.push(v);
             this.flags |= VBOTEXTURE1;
         }
-            
-
- 
-   
-   
-  
-
         return this.no_verts - 1;
     }
     
     VertexNormal(index, x, y, z)
     {
-        if (this.data & NORMAL === 0) return;
+        if (this.data & NORMAL )
+        {
         this.normals[index*3] = x;
         this.normals[index*3+1] = y;
         this.normals[index*3+2] = z;
         this.flags |= VBONORMAL;
+        }
     }
 
     VertexColor(index, r, g, b, a)
@@ -485,12 +540,14 @@ class Surface
     }
     VertexNormal(index, x, y, z)
     {
-        if (this.data & NORMAL === 0) return;
+        if (this.data & NORMAL)
+        {
         let offset = index * 3;
         this.normals[offset] = x;
         this.normals[offset+1] = y;
         this.normals[offset+2] = z;
         this.flags |= VBONORMAL;
+        }
     }
     VertexColor(index, r, g, b, a)
     {
@@ -509,6 +566,460 @@ class Surface
     
 
     }
+
+
+    // AddFace(side,x,y,z,uvs,index)
+    // {
+    //     let id = index * 4;
+    //     let uv00   = uvs[id+2].x;        let uv01   = uvs[id+2].y;
+    //     let uv10   = uvs[id+3].x;        let uv11   = uvs[id+3].y;
+    //     let uv20   = uvs[id].x;          let uv21   = uvs[id].y;
+    //     let uv30   = uvs[id+1].x;        let uv31   = uvs[id+1].y;
+
+
+    //     if (side === FaceSides.FRONT)
+    //     {
+           
+
+    //         let f0 = this.AddVertex(x-0.5, y-0.5,  z+0.5, uv00, uv01);
+    //         let f1 = this.AddVertex(x+0.5, y-0.5,  z+0.5, uv10, uv11);
+    //         let f2 = this.AddVertex(x+0.5, y+0.5,  z+0.5, uv20, uv21);
+    //         let f3 = this.AddVertex(x-0.5, y+0.5,  z+0.5, uv30, uv31);
+
+    //         this.VertexNormal(f0, 0, 0, 1);
+    //         this.VertexNormal(f1, 0, 0, 1);
+    //         this.VertexNormal(f2, 0, 0, 1);
+    //         this.VertexNormal(f3, 0, 0, 1);
+
+    //         this.MoveVertex(f0, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f1, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f2, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f3, 0.5,  0.5, 0.5);
+
+    //         this.AddTriangle(f0,f1,f2);
+    //         this.AddTriangle(f0,f2,f3);
+
+
+    //     }  else 
+    //     if (side === FaceSides.BACK)
+    //     {
+            
+    //         let f0 = this.AddVertex(x+0.5, y-0.5,  z-0.5, uv00, uv01);
+    //         let f1 = this.AddVertex(x-0.5, y-0.5,  z-0.5, uv10, uv11);
+    //         let f2 = this.AddVertex(x-0.5, y+0.5,  z-0.5, uv20, uv21);
+    //         let f3 = this.AddVertex(x+0.5, y+0.5,  z-0.5, uv30, uv31);
+    //         this.VertexNormal(f0, 0, 0, -1);
+    //         this.VertexNormal(f1, 0, 0, -1);
+    //         this.VertexNormal(f2, 0, 0, -1);
+    //         this.VertexNormal(f3, 0, 0, -1);
+            
+    //         this.MoveVertex(f0, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f1, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f2, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f3, 0.5,  0.5, 0.5);
+    //         this.AddTriangle(f0,f1,f2);
+    //         this.AddTriangle(f0,f2,f3);
+    //     } else
+    //     if (side === FaceSides.LEFT)
+    //     {
+     
+    //         let f0 = this.AddVertex(x-0.5, y-0.5,  z-0.5, uv00, uv01);
+    //         let f1 = this.AddVertex(x-0.5, y-0.5,  z+0.5, uv10, uv11);
+    //         let f2 = this.AddVertex(x-0.5, y+0.5,  z+0.5, uv20, uv21);
+    //         let f3 = this.AddVertex(x-0.5, y+0.5,  z-0.5, uv30, uv31);
+    //         this.VertexNormal(f0, -1, 0, 0);
+    //         this.VertexNormal(f1, -1, 0, 0);
+    //         this.VertexNormal(f2, -1, 0, 0);
+    //         this.VertexNormal(f3, -1, 0, 0);
+            
+    //         this.MoveVertex(f0, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f1, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f2, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f3, 0.5,  0.5, 0.5);
+    //         this.AddTriangle(f0,f1,f2);
+    //         this.AddTriangle(f0,f2,f3);
+    //     } else
+    //     if (side === FaceSides.RIGHT)
+    //     {
+            
+    //         let f0 = this.AddVertex(x+0.5, y-0.5,  z+0.5, uv00, uv01);
+    //         let f1 = this.AddVertex(x+0.5, y-0.5,  z-0.5, uv10, uv11);
+    //         let f2 = this.AddVertex(x+0.5, y+0.5,  z-0.5, uv20, uv21);
+    //         let f3 = this.AddVertex(x+0.5, y+0.5,  z+0.5, uv30, uv31);
+    //         this.VertexNormal(f0, 1, 0, 0);
+    //         this.VertexNormal(f1, 1, 0, 0);
+    //         this.VertexNormal(f2, 1, 0, 0);
+    //         this.VertexNormal(f3, 1, 0, 0);
+            
+    //         this.MoveVertex(f0, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f1, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f2, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f3, 0.5,  0.5, 0.5);
+
+    //         this.AddTriangle(f0,f1,f2);
+    //         this.AddTriangle(f0,f2,f3);
+    //     } else
+    //     if (side === FaceSides.TOP)
+    //     {
+           
+    //         let f0 = this.AddVertex(x-0.5, y-0.5,  z-0.5, uv00, uv01);
+    //         let f1 = this.AddVertex(x+0.5, y-0.5,  z-0.5, uv10, uv11);
+    //         let f2 = this.AddVertex(x+0.5, y-0.5,  z+0.5, uv20, uv21);
+    //         let f3 = this.AddVertex(x-0.5, y-0.5,  z+0.5, uv30, uv31);
+    //         this.VertexNormal(f0, 0, -1, 0);
+    //         this.VertexNormal(f1, 0, -1, 0);
+    //         this.VertexNormal(f2, 0, -1, 0);
+    //         this.VertexNormal(f3, 0, -1, 0);
+
+            
+    //         this.MoveVertex(f0, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f1, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f2, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f3, 0.5,  0.5, 0.5);
+
+    //         this.AddTriangle(f0,f1,f2);
+    //         this.AddTriangle(f0,f2,f3);
+    //     } else
+    //     if (side === FaceSides.BOTTOM)
+    //     {
+          
+    //         let f0 = this.AddVertex(x-0.5, y+0.5,  z+0.5, uv00, uv01);
+    //         let f1 = this.AddVertex(x+0.5, y+0.5,  z+0.5, uv10, uv11);
+    //         let f2 = this.AddVertex(x+0.5, y+0.5,  z-0.5, uv20, uv21);
+    //         let f3 = this.AddVertex(x-0.5, y+0.5,  z-0.5, uv30, uv31);
+    //         this.VertexNormal(f0, 0, 1, 0);
+    //         this.VertexNormal(f1, 0, 1, 0);
+    //         this.VertexNormal(f2, 0, 1, 0);
+    //         this.VertexNormal(f3, 0, 1, 0);
+            
+    //         this.MoveVertex(f0, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f1, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f2, 0.5,  0.5, 0.5);
+    //         this.MoveVertex(f3, 0.5,  0.5, 0.5);
+    //         this.AddTriangle(f0,f1,f2);
+    //         this.AddTriangle(f0,f2,f3);
+    //     }
+
+       
+
+
+      
+    
+    
+
+        
+    // }
+
+    AddFace(side,x,y,z, widthTex, heightTex, clips, frame, flip_x =false, flip_y=false)
+    {
+        let id = frame ;
+        let left   = 0;
+        let right  = 1;
+        let top    = 0;
+        let bottom = 1;
+        
+        if (id<=0) id=0;
+        
+        if (id>=clips.length) id = clips.length;
+
+
+        let rect = clips[id];
+
+        left = (2*rect.x+1) / (2*widthTex);
+        right =  left +(rect.width*2-2) / (2*widthTex);
+        top = (2*rect.y+1) / (2*heightTex);
+        bottom = top +(rect.height * 2 - 2) / (2 * heightTex);
+
+        if (flip_x)
+        {
+            let tmp = left;
+            left = right;
+            right = tmp;
+        }
+    
+        if (flip_y)
+        {
+            let tmp = top;
+            top = bottom;
+            bottom = tmp;
+        }
+    
+
+
+        if (side === FaceSides.FRONT)
+        {
+
+            
+
+            let f0 = this.AddVertex(   x+1,     y,    z+1, right, bottom);
+            let f1 = this.AddVertex(   x+1,     y+1,  z+1, right, top);
+            let f2 = this.AddVertex(   x,       y+1,  z+1, left, top);
+            let f3 = this.AddVertex(   x,       y,    z+1, left, bottom);
+
+            this.VertexNormal(f0, 0, 0, 1);
+            this.VertexNormal(f1, 0, 0, 1);
+            this.VertexNormal(f2, 0, 0, 1);
+            this.VertexNormal(f3, 0, 0, 1);
+
+
+            this.AddTriangle(f0,f1,f2);
+            this.AddTriangle(f0,f2,f3);
+
+         
+        } else 
+        if (side === FaceSides.BACK)
+        {
+
+            
+
+            let f0 = this.AddVertex(   x+1,     y,    z, left, bottom);
+            let f1 = this.AddVertex(   x+1,     y+1,  z, left, top);
+            let f2 = this.AddVertex(   x,        y+1,  z, right, top);
+            let f3 = this.AddVertex(   x,        y,    z, right, bottom);
+
+            this.VertexNormal(f0, 0, 0, -1);
+            this.VertexNormal(f1, 0, 0, -1);
+            this.VertexNormal(f2, 0, 0, -1);
+            this.VertexNormal(f3, 0, 0, -1);
+
+
+            this.AddTriangle(f2,f1,f0);
+            this.AddTriangle(f3,f2,f0);
+
+         
+        } else 
+        if (side ===  FaceSides.LEFT)
+        {
+
+            let f0 = this.AddVertex(   x,     y,    z, left, bottom);
+            let f1 = this.AddVertex(   x,     y+1,  z, left, top);
+            let f2 = this.AddVertex(   x,     y+1,  z+1, right, top);
+            let f3 = this.AddVertex(   x,     y,    z+1, right, bottom);
+
+            this.VertexNormal(f0, -1, 0, 0);
+            this.VertexNormal(f1, -1, 0, 0);
+            this.VertexNormal(f2, -1, 0, 0);
+            this.VertexNormal(f3, -1, 0, 0);
+
+            
+            // this.AddTriangle(f0,f1,f2);
+            // this.AddTriangle(f0,f2,f3);
+
+            this.AddTriangle(f2,f1,f0);
+            this.AddTriangle(f3,f2,f0);
+
+        }else 
+        if (side ===  FaceSides.RIGHT)
+        {
+
+            let f0 = this.AddVertex(   x+1,     y,    z, right, bottom);
+            let f1 = this.AddVertex(   x+1,     y+1,  z, right, top);
+            let f2 = this.AddVertex(   x+1,     y+1,  z+1, left, top);
+            let f3 = this.AddVertex(   x+1,     y,    z+1, left, bottom);
+
+            this.VertexNormal(f0, 1, 0, 0);
+            this.VertexNormal(f1, 1, 0, 0);
+            this.VertexNormal(f2, 1, 0, 0);
+            this.VertexNormal(f3, 1, 0, 0);
+
+
+            this.AddTriangle(f0,f1,f2);
+            this.AddTriangle(f0,f2,f3);
+
+        }else
+        if (side ===  FaceSides.TOP)
+        {
+
+            let f0 = this.AddVertex(   x+1,     y+1,    z+1, right, bottom);
+            let f1 = this.AddVertex(   x+1,     y+1,    z, right, top);
+            let f2 = this.AddVertex(   x,       y+1,    z, left, top);
+            let f3 = this.AddVertex(   x,       y+1,    z+1, left, bottom);
+
+            this.VertexNormal(f0, 0, 1, 0);
+            this.VertexNormal(f1, 0, 1, 0);
+            this.VertexNormal(f2, 0, 1, 0);
+            this.VertexNormal(f3, 0, 1, 0);
+
+            
+
+            this.AddTriangle(f0,f1,f2);
+            this.AddTriangle(f0,f2,f3);
+    
+
+        }
+        else
+        if (side ===  FaceSides.BOTTOM)
+        {
+
+            let f0 = this.AddVertex(   x+1,     y,    z+1, right, bottom);
+            let f1 = this.AddVertex(   x+1,     y,    z, right, top);
+            let f2 = this.AddVertex(   x,       y,    z, left, top);
+            let f3 = this.AddVertex(   x,       y,    z+1, left, bottom);
+
+            this.VertexNormal(f0, 0, 1, 0);
+            this.VertexNormal(f1, 0, 1, 0);
+            this.VertexNormal(f2, 0, 1, 0);
+            this.VertexNormal(f3, 0, 1, 0);
+
+            
+
+
+            this.AddTriangle(f2,f1,f0);
+            this.AddTriangle(f3,f2,f0);
+    
+
+        }
+        
+
+       
+
+
+      
+    
+    
+
+        
+    }
+    AddQuad(side)
+    {
+
+        if (side === FaceSides.FRONT)
+        {
+            let a = this.AddVertex(-0.5, -0.5, 0.5, 0.0, 1.0);
+            let b = this.AddVertex( 0.5, -0.5, 0.5, 1.0, 1.0);
+
+            
+
+
+            let c = this.AddVertex( 0.5,  0.5, 0.5, 1.0, 0.0);
+            let d = this.AddVertex(-0.5,  0.5, 0.5, 0.0, 0.0);
+
+
+            this.VertexNormal(a, 0, 0, 1);
+            this.VertexNormal(b, 0, 0, 1);
+
+            this.VertexNormal(c, 0, 0, 1);
+            this.VertexNormal(d, 0, 0, 1);
+
+
+
+            this.AddTriangle(a,b,c);
+            this.AddTriangle(a,c,d);
+
+        } else
+        if (side === FaceSides.BACK)
+        {
+            let a = this.AddVertex( 0.5, -0.5, -0.5, 0.0, 1.0);
+            let b = this.AddVertex(-0.5, -0.5, -0.5, 1.0, 1.0);
+
+            let c = this.AddVertex(-0.5,  0.5, -0.5, 1.0, 0.0);
+            let d = this.AddVertex( 0.5,  0.5, -0.5, 0.0, 0.0);
+
+
+            this.VertexNormal(a, 0, 0, -1);
+            this.VertexNormal(b, 0, 0, -1);
+            this.VertexNormal(c, 0, 0, -1);
+            this.VertexNormal(d, 0, 0, -1);
+
+            this.AddTriangle(a,b,c);
+            this.AddTriangle(a,c,d);
+        } else
+        if (side === FaceSides.LEFT)
+        {
+            let a = this.AddVertex(-0.5, -0.5, -0.5, 0.0, 1.0);
+            let b = this.AddVertex(-0.5, -0.5,  0.5, 1.0, 1.0);
+
+            let c = this.AddVertex(-0.5,  0.5,  0.5, 1.0, 0.0);
+            let d = this.AddVertex(-0.5,  0.5, -0.5, 0.0, 0.0);
+
+
+
+            this.VertexNormal(a, -1, 0, 0);
+            this.VertexNormal(b, -1, 0, 0);
+            this.VertexNormal(c, -1, 0, 0);
+            this.VertexNormal(d, -1, 0, 0);
+
+            this.AddTriangle(a,b,c);
+            this.AddTriangle(a,c,d);
+        } else
+        if (side === FaceSides.RIGHT)
+        {
+            let a = this.AddVertex( 0.5, -0.5,  0.5, 0.0, 1.0);
+            let b = this.AddVertex( 0.5, -0.5, -0.5, 1.0, 1.0);
+
+            let c = this.AddVertex( 0.5,  0.5, -0.5, 1.0, 0.0);
+            let d = this.AddVertex( 0.5,  0.5,  0.5, 0.0, 0.0);
+
+            this.VertexNormal(a, 1, 0, 0);
+            this.VertexNormal(b, 1, 0, 0);
+            this.VertexNormal(c, 1, 0, 0);
+            this.VertexNormal(d, 1, 0, 0);
+
+
+            this.AddTriangle(a,b,c);
+            this.AddTriangle(a,c,d);
+        } else
+        if (side === FaceSides.TOP)
+        {
+            let a = this.AddVertex(-0.5,  0.5,  0.5, 0.0, 1.0);
+            let b = this.AddVertex( 0.5,  0.5,  0.5, 1.0, 1.0);
+
+            let c = this.AddVertex( 0.5,  0.5, -0.5, 1.0, 0.0);
+            let d = this.AddVertex(-0.5,  0.5, -0.5, 0.0, 0.0);
+
+
+
+            this.VertexNormal(a, 0, 1, 0);
+            this.VertexNormal(b, 0, 1, 0);
+            this.VertexNormal(c, 0, 1, 0);
+            this.VertexNormal(d, 0, 1, 0);
+
+            this.AddTriangle(a,b,c);
+            this.AddTriangle(a,c,d);
+        } else
+        if (side === FaceSides.BOTTOM)
+        {
+            let a = this.AddVertex(-0.5, -0.5, -0.5, 0.0, 1.0);
+            let b = this.AddVertex( 0.5, -0.5, -0.5, 1.0, 1.0);
+
+            let c = this.AddVertex( 0.5, -0.5,  0.5, 1.0, 0.0);
+            let d = this.AddVertex(-0.5, -0.5,  0.5, 0.0, 0.0);
+
+            this.VertexNormal(a, 0, -1, 0);
+            this.VertexNormal(b, 0, -1, 0);
+            this.VertexNormal(c, 0, -1, 0);
+            this.VertexNormal(d, 0, -1, 0);
+
+
+
+            this.AddTriangle(a,b,c);
+            this.AddTriangle(a,c,d);
+        }
+
+        
+
+    
+    }
+
+    MoveVertices(x,y,z)
+    {
+        for (let i = 0; i < this.vertices.length; i+=3)
+        {
+            this.vertices[i] += x;
+            this.vertices[i+1] += y;
+            this.vertices[i+2] += z;
+        }
+        this.flags |= VBOVERTEX;
+    }
+    MoveVertex(index, x,y,z)
+    {
+        let offset = index * 3;
+        this.vertices[offset] += x;
+        this.vertices[offset+1] += y;
+        this.vertices[offset+2] += z;
+        this.flags |= VBOVERTEX;
+    }
+
     ChangeColor(r,g,b,a)
     {
         if (this.data & COLOR)
@@ -578,6 +1089,10 @@ class Surface
     GetTotalVertices()
     {
         return this.vertices.length / 3;
+    }
+    GetTotalTriangles()
+    {
+        return this.indices.length / 3;
     }
 
     CalculateNormals()
@@ -1037,12 +1552,216 @@ class SkyBox
     
     Render()
     {
-        Renderer.SetCullFace(false);
-        Renderer.SetDepthFunc(gl.LEQUAL);
+        Core.SetCullFace(false);
+        Core.SetDepthFunc(gl.LEQUAL);
         this.mesh.Render();
-        Renderer.SetCullFace(true);
-        Renderer.SetDepthFunc(gl.LESS);
+        Core.SetCullFace(true);
+        Core.SetDepthFunc(gl.LESS);
 
     }
 
+}
+
+class InstanceMesh
+{
+    constructor(material)
+    {
+        this.normals   = [];
+        this.vertices  = [];
+        this.positions = [];
+        this.indices   = [];
+        this.texcoord  = [];
+        this.vbo = [];
+        this.numVertex = 0;
+        this.material  = material;
+        this.isBuild   = false;
+        this.isDirty   = false;
+        this.Init();
+    }
+
+    SetTexture(texture)
+    {
+        this.material.SetTexture(texture);
+    }
+
+    GetVertexPosition(index)
+    {
+        index = index * 3;
+        return new Vector3(this.vertices[index], this.vertices[index+1], this.vertices[index+2]);
+    }
+
+    SetVertexPosition(index, x, y, z)
+    {
+        index = index * 3;
+        this.vertices[index] = x;
+        this.vertices[index+1] = y;
+        this.vertices[index+2] = z;
+        this.isBuild = false;
+    }
+
+
+    Init()
+    {
+      
+        this.vbo[0] = gl.createBuffer();
+        this.vbo[1] = gl.createBuffer();
+        this.vbo[2] = gl.createBuffer();
+
+
+        this.vao = gl.createVertexArray();
+      
+        gl.bindVertexArray(this.vao);
+        this.ebo =  gl.createBuffer();
+      
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo[0]);
+        gl.enableVertexAttribArray(0);
+        gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0); //vertex position
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo[1]);
+        gl.enableVertexAttribArray(1);
+        gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 0, 0);//texture
+
+
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo[2]);
+        gl.enableVertexAttribArray(2);
+        gl.vertexAttribPointer(2, 3, gl.FLOAT, false, 0, 0);//instance position
+        gl.vertexAttribDivisor(2,1);
+
+
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ebo);
+      
+        gl.bindVertexArray(null);      
+    }
+
+    Add(x,y,z)
+    {
+        this.positions.push(x);
+        this.positions.push(y);
+        this.positions.push(z);
+        this.isDirty = true;
+    }
+    AddVertex(x,y,z,u,v)
+    {
+        this.numVertex++;
+        this.vertices.push(x);
+        this.vertices.push(y);
+        this.vertices.push(z);
+
+        this.texcoord.push(u);
+        this.texcoord.push(v);
+
+        // this.normals.push(nx);
+        // this.normals.push(ny);
+        // this.normals.push(nz);
+
+        this.isBuild = false;
+
+        return this.numVertex-1;
+    }
+
+    AddTriangle(a,b,c)
+    {
+        this.indices.push(a);
+        this.indices.push(b);
+        this.indices.push(c);
+        this.isBuild = false;
+    }
+
+    BuildCube(size) 
+    {
+        this.AddVertex(0, 0, 0, 0.0, 1.0);
+        this.AddVertex(1, 0, 0, 1.0, 1.0);
+     
+        this.AddVertex(1, 1, 0, 1.0, 0.0);
+        this.AddVertex(0, 1, 0, 0.0, 0.0);
+     
+        this.AddVertex(1, 0, 1, 0.0, 1.0);
+        this.AddVertex(1, 1, 1, 0.0, 0.0);
+     
+        this.AddVertex(0, 1, 1, 1.0, 0.0);
+        this.AddVertex(0, 0, 1, 1.0, 1.0);
+     
+        this.AddVertex(0, 1, 1, 0.0, 1.0);
+        this.AddVertex(0, 1, 0, 1.0, 1.0);
+     
+        this.AddVertex(1, 0, 1, 1.0, 0.0);
+        this.AddVertex(1, 0, 0, 0.0, 0.0);
+      
+        this.indices = [ 0,2,1,   0,3,2,   
+         1,5,4,   1,2,5,   
+         4,6,7,   4,5,6,        
+         7,3,0,   7,6,3,   
+         9,5,2,   9,8,5,   
+         0,11,10,   0,10,7];
+
+    
+         
+         
+         for (let i = 0; i < 12; ++i)
+         {
+             let v = this.GetVertexPosition(i);
+             v.x -= 0.5;
+             v.y -= 0.5;
+             v.z -= 0.5;
+             this.SetVertexPosition(i, v.x * size, v.y * size, v.z * size);
+             
+         }
+
+        this.Update();
+    }
+    Update()
+    {
+        if (!this.isBuild)
+        {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo[0]);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.vertices), gl.STATIC_DRAW);
+
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo[1]);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.texcoord), gl.STATIC_DRAW);
+
+
+
+                if (this.positions.length!==0)
+                {
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo[2]);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.positions), gl.STATIC_DRAW);
+                }
+
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ebo);
+                gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.indices), gl.STATIC_DRAW);
+
+                this.isBuild = true;
+                this.isDirt=false;
+        }
+
+        if (this.isDirty)
+        {
+            if (this.positions.length!==0)
+            {
+            
+            gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo[2]);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.positions), gl.STATIC_DRAW);
+            this.isDirty = false;
+            }
+        }
+
+    }
+
+    Clear()
+    {
+        this.positions = [];
+        this.isDirty = true;
+    }
+  
+    Render()
+    {
+        this.Update();
+        this.material.Set();
+        gl.bindVertexArray(this.vao);
+        gl.drawElementsInstanced(gl.TRIANGLES, this.indices.length, gl.UNSIGNED_SHORT, 0, this.positions.length / 3);
+        gl.bindVertexArray(null);
+        this.material.UnSet();
+      
+    }
 }

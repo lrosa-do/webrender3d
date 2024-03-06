@@ -166,28 +166,11 @@
 
     VirtualPad.Add(Key.A,5,height-220,100,100);
     VirtualPad.Add(Key.D,width-100,height-220,100,100);
-    let angle=0;
 
-    function drawPlanet(fill, radius,  distanceFromSun,  rotationSpeed) 
-{
-            fill.Rotate((CurrentTime/1000) * rotationSpeed,0,1,0);
-            fill.Translate(distanceFromSun,0,0);
-            fill.Sphere(0,0,0,radius);
-
-  //  glRotatef(angle * rotationSpeed, 0.0f, 1.0f, 0.0f);
-  //  glTranslatef(distanceFromSun, 0.0f, 0.0f);
- //   glutSolidSphere(radius, 50, 50);
-}
 
 
     function Update(dt)
     {
-
-        angle += 0.1;
-        if (angle > 360.0) 
-        {
-            angle -= 360.0;
-        }
 
         let speed = 45 * dt;
 
@@ -249,48 +232,65 @@
 
         let shader = Core.GetShader("texture");
         Core.SetShader(shader);
+
         Core.SetMatrix(MODEL_MATRIX, identity);
         plane.Render();
 
 
-    //     let trasnform = Matrix4.Translate(-2,1,0);
-    //     let rotateX = Matrix4.RotateX(CurrentTime/1000);
-    //     let rotateY = Matrix4.RotateY(-CurrentTime/1000);
-    //     let rotateZ = Matrix4.RotateZ(-CurrentTime/1000);
+        // let trasnform = Matrix4.Translate(-2,1,0);
+        // let rotateX = Matrix4.RotateX(CurrentTime/1000);
+        // let rotateY = Matrix4.RotateY(-CurrentTime/1000);
+        // let rotateZ = Matrix4.RotateZ(-CurrentTime/1000);
 
-    //     let rotate = Matrix4.Multiply(Matrix4.Multiply(rotateX,rotateY),rotateZ);
+        // let rotate = Matrix4.Multiply(Matrix4.Multiply(rotateX,rotateY),rotateZ);
 
-    //     trasnform = Matrix4.Multiply( rotate,trasnform);
+        // trasnform = Matrix4.Multiply( rotate,trasnform);
 
-    //   //  Core.SetMatrix(MODEL_MATRIX, trasnform);
+        // Core.SetMatrix(MODEL_MATRIX, trasnform);
+        // cube.Render();
+
+
+        // trasnform = Matrix4.Translate(2,1,0);
+        // Core.SetMatrix(MODEL_MATRIX, trasnform);
+        // sphere.Render();        
+
+        // trasnform = Matrix4.Translate(2,1,1);
+        // Core.SetMatrix(MODEL_MATRIX, trasnform);
+        // sphere.Render();        
+
+        // trasnform = Matrix4.Translate(2,1,2);
+        // Core.SetMatrix(MODEL_MATRIX, trasnform);
+        // sphere.Render();        
+        // trasnform = Matrix4.Translate(2,1,3);
+        // Core.SetMatrix(MODEL_MATRIX, trasnform);
+        // sphere.Render();        
+
+
+
+        // trasnform = Matrix4.Translate(2,1,-3);
+        // Core.SetMatrix(MODEL_MATRIX, trasnform);
+        // cylinder.Render();      
+     
+        // trasnform = Matrix4.Translate(-2,1,2);
+        // Core.SetMatrix(MODEL_MATRIX, trasnform);
+        // cone.Render();
+
+        // trasnform = Matrix4.Translate(0,1,-2);
+
         
 
 
-       Core.PushMatrix();
-       Core.Identity();
-            Core.Translate(0,1,0);
-           // Core.Rotate(CurrentTime/1000,1,0,0);
-            Core.Rotate(CurrentTime/1000,0,1,0);
-         //   Core.Rotate(CurrentTime/1000,0,0,1);
-         //   Core.ApplyTransform();
-            cube.Render();
-        
+        //  rotateX = Matrix4.RotateX(CurrentTime/1000);
+        //  rotateY = Matrix4.RotateY(CurrentTime/1000);
+        //  rotateZ = Matrix4.RotateZ(CurrentTime/1000);
+
+        //  rotate = Matrix4.Multiply(Matrix4.Multiply(rotateX,rotateY),rotateZ);
+
+        // trasnform = Matrix4.Multiply( rotate,trasnform);
 
 
-
-            Core.Translate(0,1,-5);
-            Core.Rotate(CurrentTime/1000,1,0,0);
-            Core.Rotate(CurrentTime/1000,0,1,0);
-            Core.Rotate(CurrentTime/1000,0,0,1);
-      //      Core.ApplyTransform();
-            torus.Render();
-    
-
-        Core.PopMatrix();
-
-
-
-
+        // Core.SetMatrix(MODEL_MATRIX, trasnform);
+        // torus.Render();
         
 
         shader = Core.GetShader("solid");
@@ -299,8 +299,20 @@
         lines.Grid3D(10,10);
         lines.Render();
 
-    
+        Core.SetCullFace(false);
 
+        fill.Cube(2,2,2,1);
+        fill.Sphere(-2,2,2,1);
+        fill.Cylinder(-2,2,-2,1,1);
+        fill.Cone(2,2,-2,1,2);
+
+        fill.PushMatrix();
+        fill.Identity();
+     //   fill.Rotate(CurrentTime/1000,0,1,1);
+        fill.Torus(0,0,0,32, 32, 0.5, 1);
+        fill.PopMatrix();
+
+        fill.Render();
 
 
         
@@ -318,10 +330,12 @@
         fill.Render();
 
 
+      //  Core.SetCullFace(false);
 
         shader = Core.GetShader("texture");
         Core.SetShader(shader);
-        Core.SetMatrix(MODEL_MATRIX, identity);
+
+
 
         font.SetColor(RED);
         font.SetSize(18);
@@ -329,7 +343,7 @@
         font.Print(100, 40, "textures: "+Int(Core.numTextures) + " Draws " + Int(Core.numDrawCalls));
         font.Print(100, 60, "Programs: "+Int(Core.numPrograms) + " Vertices: " + Int(Core.numVertex) + " Triangles: " + Int(Core.numTriangles));
 
-       // font.Print(50,100, ` Mouse X  ${Mouse.X}  Mouse Y ${Mouse.X}  Mouse Delta x ${Mouse.DeltaX}  Mouse Delta y ${Mouse.DeltaY}`);
+        font.Print(50,100, ` Mouse X  ${Mouse.X}  Mouse Y ${Mouse.X}  Mouse Delta x ${Mouse.DeltaX}  Mouse Delta y ${Mouse.DeltaY}`);
        
 
  
@@ -339,7 +353,6 @@
     //    Core.SetCullFace(true);
 
 
-      //  Core.SetCullFace(false);
    
 
     }
