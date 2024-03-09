@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>WebGL </title>
+   
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+  
+
+    <script src="https://mrdoob.github.io/stats.js/build/stats.min.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/math.js"></script>
+    <script src="js/input.js"></script>
+    <script src="js/shaders.js"></script>
+    <script src="js/core.js"></script>
+    <script src="js/batch.js"></script>
+   
+    <script src="js/imgui.js"></script>
+    <script src="js/mesh.js"></script>
+    <script src="js/assets.js"></script>
+
+    <script>
+
+
+
+
+        var canvas = document.getElementById("canvas");
+        var gl = canvas.getContext("webgl2",{alpha: true, depth: true, stencil: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: true, powerPreference: "high-performance"});
+
+        if (!gl) 
+        {
+            console.log("O WebGL não está disponível, seu navegador pode não suportar.");
+        }
+
+
+
+        var stats=new Stats();
+        document.body.appendChild(stats.dom);
+
+
+        let CurrentTime, ElapsedTime, PreviousTime = Date.now(), LagTime = 0;
+        let FPS = 60;          // Frames per second
+        let FrameTime = 1 / FPS;
+        let UpdateIntervalInSeconds = FrameTime;
+        let MPF = 1000 * FrameTime; // Milliseconds per frame.
+        let FrameCounter = 0;
+        let CurrentFPS = 0;
+        let UpdateTimeFPS = Date.now();
+
+        const pixelRatio = window.devicePixelRatio || 1;
+        canvas.width  = pixelRatio * window.innerWidth ;
+        canvas.height = pixelRatio * window.innerHeight;
+
+
+        var width = canvas.width;
+        var height = canvas.height;
+
+
+
+
+
+
+        Core.Init(width, height);
+        Assets.Init();
+        Input.Init();
+        Gui.Init();
+
+        let filter = new Bloom(width,height);
+  
+
+        let camera = new Camera(0,5,5,0,0,0);
+    
+        let identity=Matrix4.Identity();
+        let lines =new LineBatch(4024);
+        let fill = new FillBatch(4024);
+        let sprites = new SpriteBatch(1024);
+        
+        let ortho = Matrix4.Ortho(0, width, height, 0, -10, 10);
+
+        let quad = new ScreenQuad();
+        let depth = new ShadowCaster(512,512);
+
+        Renderer.Init();
+
+
+
+        let skybox = new SkyBox();
+
+        let font= Core.GetDefaultFont();
+ 
+        let cube = Mesh.CreateCube(1, new LightMaterial());
+        let plane = Mesh.CreatePlane(40,20, 20,20, new LightMaterial());
+        let sphere = Mesh.CreateSphere(32, 32, new LightMaterial());
+        let cylinder = Mesh.CreateCylinder(32, 32, new LightMaterial());
+        let cone = Mesh.CreateCone(32, 32, new LightMaterial());
+        let torus = Mesh.CreateTorus(32, 32, 0.5, 1, new LightMaterial());
+        let teapot = new Mesh();
+
+        Assets.LoadFile("assets/mesh/42.obj").then((data) =>
+        {
+            teapot.LoadOBJ(data, new LightMaterial());
+        });
+
+      //  teapot.LoadOBJ( new LightDirectionalMaterial());
+
+
+         Assets.AddTexture("wall", "assets/wall.jpg");
+         Assets.AddTexture("container", "assets/container.png");
+        Assets.AddTexture("metal", "assets/metal.png");
+        Assets.AddTexture("cube", "assets/cube.png");
+        Assets.AddTexture("marble", "assets/marble.jpg");
+
+        
+        Assets.AddImage("skybox0",      "assets/skybox/right.jpg");
+         Assets.AddImage("skybox1",      "assets/skybox/left.jpg");
+
+         Assets.AddImage("skybox2",      "assets/skybox/top.jpg");
+         Assets.AddImage("skybox3",      "assets/skybox/bottom.jpg");
+
+         Assets.AddImage("skybox4",      "assets/skybox/front.jpg");
+         Assets.AddImage("skybox5",      "assets/skybox/back.jpg");
+        
+
+         Assets.AddTextureCube("skybox","skybox");
+
+
+       
+        async function Load()
+        {
+            await Assets.LoadAll();
+        }
+
+        Assets.OnLoad = function(filename)
+        {
+            
+        };
+
+        Assets.OnComplete = function()
+        {
+           cube.GetMaterial(0).SetTexture(Assets.GetTexture("container"));
+           plane.GetMaterial(0).SetTexture(Assets.GetTexture("wall"));
+           sphere.GetMaterial(0).SetTexture(Assets.GetTexture("marble"));
+           cylinder.GetMaterial(0).SetTexture(Assets.GetTexture("metal"));
+           cone.GetMaterial(0).SetTexture(Assets.GetTexture("cube"));
+           torus.GetMaterial(0).SetTexture(Assets.GetTexture("container"));
+           teapot.GetMaterial(0).SetTexture(Assets.GetTexture("metal"));
+           skybox.SetTexture(Assets.GetTexture("skybox"));
+        }
+
+        Assets.OnProgress = function(filename, progress, total)
+        {
+            Core.Reset();
+            Core.Clear();
+
+            
+    
+        
+
+            Core.SetMatrix(PROJECTION_MATRIX, ortho);
+            Core.SetMatrix(VIEW_MATRIX, identity);
+            Core.SetMatrix(MODEL_MATRIX, identity);
+     
+
+   
+      
+
+ 
+ 
+            font.SetColor(RED);
+            font.SetSize(32);
+            font.SetAllignment(Allign.Left);
+            let w = font.GetTextWidth("Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
+            font.Print(width/2-(w/2),height/2, "Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
+
+            font.Render();
+
+            console.log("Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
+        };
+
+
+
+     
+
+
+
+
+    function Process()
+    {
+    
+     
+    }
+
+    let firstMouse = true;
+     let lastX = 0;
+    let lastY = 0;
+
+
+    VirtualPad.Add(Key.W,5,height-100,100,100);//
+    VirtualPad.Add(Key.S,width-100,height-100,100,100);
+
+    VirtualPad.Add(Key.A,5,height-220,100,100);
+    VirtualPad.Add(Key.D,width-100,height-220,100,100);
+    let angle=0;
+
+    function drawPlanet(fill, radius,  distanceFromSun,  rotationSpeed) 
+{
+            fill.Rotate((CurrentTime/1000) * rotationSpeed,0,1,0);
+            fill.Translate(distanceFromSun,0,0);
+            fill.Sphere(0,0,0,radius);
+
+
+}
+
+
+let restoreToCamera=false;
+    let cameraOBJ = {x:0,y:0,z:0,yaw:0,pitch:0};
+    let elapsed=0;
+    let duration = 2;
+
+    let DrawQuad=false;
+    function Update(dt)
+    {
+    
+
+        if (restoreToCamera)
+        {
+           
+
+         
+
+                elapsed += dt ;
+                const progress = Math.min(elapsed / duration, 1); 
+                const easedProgress =  Ease.CircIn(progress);
+                     
+               camera.position.x = Lerp(camera.position.x, cameraOBJ.x, easedProgress);
+               camera.position.y = Lerp(camera.position.y, cameraOBJ.y, easedProgress);
+               camera.position.z = Lerp(camera.position.z, cameraOBJ.z, easedProgress);
+               camera.yaw = Lerp(camera.yaw, cameraOBJ.yaw, easedProgress);
+               camera.pitch = Lerp(camera.pitch, cameraOBJ.pitch, easedProgress);
+
+               let distance = Vector3.Distance( new Vector3(cameraOBJ.x,cameraOBJ.y,cameraOBJ.z),camera.position) ;
+
+              
+
+                if (progress >= 1 || distance < 0.5) 
+                {
+                    restoreToCamera = false;
+                    elapsed = 0;
+                } 
+         
+        }
+
+        if (Gui.HasFocus())
+        {
+            return;
+        }
+
+        let speed = 45 * dt;
+
+        if(Input.IsKeyDown(Key.W))
+        {
+            camera.MoveForward(speed);
+        }else 
+        if(Input.IsKeyDown(Key.S))
+        {
+            camera.MoveBackward(speed);
+        }
+
+        if(Input.IsKeyDown(Key.A))
+        {
+            camera.StrafeLeft(speed);
+        }else
+        if(Input.IsKeyDown(Key.D))
+        {
+            camera.StrafeRight(speed);
+        }
+
+   
+           if (Input.IsMouseDown(0) && !VirtualPad.ActiveKeys() )
+            {
+               
+                let xoffset = Mouse.DeltaX;
+                let yoffset = Mouse.DeltaY; 
+    
+                camera.Rotate(xoffset * 1, -yoffset *1);
+            }
+        
+      
+       
+        
+        
+    }
+
+
+
+    function Render()
+    {
+        Core.SetDepthTest(true);
+        Core.SetBlend(false);
+        Core.SetCullFace(true);
+      
+      
+
+
+
+        Core.SetMatrix(MODEL_MATRIX, identity);
+  
+
+
+        
+
+
+        camera.Update();
+
+        const frutrum = camera.GetFrustum();
+
+        const ambient = Core.GetAmbientLight();
+//first pass
+        
+
+
+
+
+
+        
+        depth.Begin();
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(-6,1,-2);
+        Core.Rotate(CurrentTime/1000,0,1,0);
+        teapot.Render();
+        Core.PopMatrix();
+     
+
+        
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(2,1,0);
+        Core.Rotate(CurrentTime/1000,1,0,0);
+        Core.Rotate(CurrentTime/1000,0,1,0);
+        sphere.Render();
+        Core.PopMatrix();
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(0,1,-2);
+        Core.Rotate(CurrentTime/1000,0,0,1);
+        cylinder.Render();
+        Core.PopMatrix();
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(-2,0.5,0);
+        cone.Render();
+        Core.PopMatrix();
+
+  
+       
+
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(3,1,-5);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
+            torus.Render();
+        Core.PopMatrix();
+        
+
+
+       Core.PushMatrix();
+       Core.Identity();
+       Core.Translate(5,1,0);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
+ 
+            cube.Render();
+        
+            Core.Translate(0,1,-1);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
+            cube.Render();
+        Core.PopMatrix();
+
+       
+        
+
+         depth.End();
+    //     Core.SetDepthTest(true);
+
+//***************normal pass 
+        Core.SetClearColor(0.0, 0.0, 0.4, 1.0);
+        Core.Clear();
+        Core.SetViewport(0, 0, width, height);  
+        Core.SetMatrix(MODEL_MATRIX, identity);
+
+        filter.Begin();
+
+        skybox.Render();
+
+        let shader = Core.GetShader("light");
+        Core.SetShader(shader);
+
+
+
+        plane.Render();
+    
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(-6,1,-2);
+        Core.Rotate(CurrentTime/1000,0,1,0);
+        teapot.Render();
+        Core.PopMatrix();
+     
+        
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(2,1,0);
+        Core.Rotate(CurrentTime/1000,1,0,0);
+        Core.Rotate(CurrentTime/1000,0,1,0);
+        sphere.Render();
+        Core.PopMatrix();
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(0,1,-2);
+        Core.Rotate(CurrentTime/1000,0,0,1);
+        cylinder.Render();
+        Core.PopMatrix();
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(-2,0.5        ,0);
+        cone.Render();
+        Core.PopMatrix();
+
+  
+       
+
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(3,1,-5);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
+
+    
+                torus.Render();
+      
+
+        Core.PopMatrix();
+        
+       Core.PushMatrix();
+       Core.Identity();
+       Core.Translate(5,1,0);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
+ 
+            cube.Render();
+        
+            Core.Translate(0,1,-1);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
+     
+            cube.Render();
+        Core.PopMatrix();
+
+
+        filter.End();
+
+       
+        filter.Render();
+                
+        
+
+        shader = Core.GetShader("solid");
+        Core.SetMatrix(MODEL_MATRIX, identity);
+        Core.SetShader(shader);
+        lines.Grid3D(10,10);
+   
+        lines.Render();
+
+    
+
+
+
+        
+
+   
+    
+
+        Core.SetMatrix(PROJECTION_MATRIX, ortho);
+        Core.SetMatrix(VIEW_MATRIX, identity);
+        Core.SetMatrix(MODEL_MATRIX, identity);
+
+        // Core.SetBlend(true);
+        // Core.SetDepthTest(false);
+        // Core.SetCullFaceMode(CullMode.Back);
+        // Core.SetDepthFunc(DepthMode.LessOrEqual);
+
+        VirtualPad.Render(fill);
+
+
+
+        fill.SetColor(RED);
+        fill.Rectangle(Mouse.X,Mouse.Y,20,20);
+        fill.Render();
+
+        if (DrawQuad)
+        {
+        let s = Core.GetShader("screenDepth");
+        Core.SetShader(s);
+        depth.UseTexture(0); 
+        quad.Render();
+        }
+
+ 
+
+
+        const light = Core.GetDirectionalLight();
+
+        shader = Core.GetShader("texture");
+        Core.SetShader(shader);
+      
+
+
+
+        
+
+        if (!DrawQuad)
+        {
+        sprites.SetFlip(false,true);
+        sprites.Draw(depth.texture,width-220,20,200,200);
+        }
+
+        sprites.Render();
+
+
+     
+
+        font.SetColor(RED);
+        font.SetSize(18);
+        font.Print(100, 20, "FPS: "+Int(CurrentFPS ) );
+        font.Print(100, 40, "textures: "+Int(Core.numTextures) + " Draws " + Int(Core.numDrawCalls));
+        font.Print(100, 60, "Programs: "+Int(Core.numPrograms) + " Vertices: " + Int(Core.numVertex) + " Triangles: " + Int(Core.numTriangles));
+
+        font.Print(100,80,"Light" + light.direction.x + " " + light.direction.y + " " + light.direction.z);
+
+       // font.Print(50,100, ` Mouse X  ${Mouse.X}  Mouse Y ${Mouse.X}  Mouse Delta x ${Mouse.DeltaX}  Mouse Delta y ${Mouse.DeltaY}`);
+       
+
+ 
+
+        font.Render();
+   
+      //  Core.SetCullFace(false);
+ 
+
+
+        Gui.Begin(10,150,300,550,{bar:true,background:true,dragging:true,title:"Config" });
+
+        Gui.Text(100, 10, "Camera State" );
+        if (Gui.Button(40, 40, 100, 30,"Save"))
+        {
+          
+            SessionStorage.Save("camera", {x:camera.position.x, y:camera.position.y, z:camera.position.z,yaw:camera.yaw,pitch:camera.pitch});
+        }
+
+       if ( Gui.Button(150, 40, 100, 30,"Restore"))
+       {
+              let data = SessionStorage.Load("camera");
+              if (data)
+              {
+                cameraOBJ.x = data.x;
+                cameraOBJ.y = data.y;
+                cameraOBJ.z = data.z;
+                cameraOBJ.yaw = data.yaw;
+                cameraOBJ.pitch = data.pitch;
+                const distance = Vector3.Distance( new Vector3(cameraOBJ.x,cameraOBJ.y,cameraOBJ.z),camera.position);
+                duration =2;// Vector3.Distance( new Vector3(cameraOBJ.x,cameraOBJ.y,cameraOBJ.z),camera.position) / 100;
+                restoreToCamera = true;
+              }
+         }
+    
+   
+
+        Gui.Line(10, 80, 290, 80);
+
+
+
+
+
+
+
+     
+        Gui.Text(70, 90, "Directional Light" );
+        light.direction.x = Gui.Slider(10, 120, 150, 20, "","X", -1, 1, light.direction.x);
+        light.direction.y = Gui.Slider(10, 150, 150, 20, "","Y", -1, 1, light.direction.y);
+        light.direction.z = Gui.Slider(10, 180, 150, 20, "","Z", -1, 1, light.direction.z);
+
+        light.color.r = Gui.Slider(10, 210, 150, 20, "","Red",0, 1, light.color.r);
+        light.color.g = Gui.Slider(10, 240, 150, 20, "","Green",0, 1, light.color.g);
+        light.color.b = Gui.Slider(10, 270, 150, 20, "","Blue",0, 1, light.color.b);
+
+        light.ambientIntensity = Gui.Slider(10, 300, 150, 20, "","Ambient Intensity",0, 5, light.ambientIntensity);
+        light.diffuseIntensity = Gui.Slider(10, 330, 150, 20, "","Diffuse Intensity",0, 5, light.diffuseIntensity);
+        light.specularIntensity = Gui.Slider(10, 360, 150, 20, "","Specular Intensity",0, 264, light.specularIntensity);
+        light.shininess = Gui.Slider(10, 390, 150, 20, "","Shininess",0, 264, light.shininess);
+
+        DrawQuad = Gui.CheckBox(10, 420,20,20, "Draw Quad", DrawQuad);
+
+        Gui.Image(depth.texture,120,420,140,90,false,true);
+
+        
+
+       //Slider(x, y, w, h, labelLeft,labelRight, min, max, value)
+        Gui.End();
+
+  
+        Gui.Render();
+
+  
+
+      
+
+
+   
+
+    }
+
+
+
+
+    function GameLoop () 
+    {
+    
+
+       
+        CurrentTime = Date.now();
+        ElapsedTime = (CurrentTime - PreviousTime)/1000;
+        PreviousTime = CurrentTime;
+        LagTime += (ElapsedTime * 1000);
+        FrameCounter++;
+        Core.ResetStats();
+
+
+       
+  
+           
+        Update(ElapsedTime);
+        while (LagTime >= MPF) 
+        {
+            LagTime -= MPF;
+            Process();
+        }
+
+        Render();   
+        Input.Update();
+        if (CurrentTime - UpdateTimeFPS > 1000) 
+        {
+            CurrentFPS = FrameCounter;
+            FrameCounter = 0;
+            UpdateTimeFPS = Date.now();
+        }
+
+    };
+
+
+
+
+
+
+    window.onresize = function()
+    {
+        console.log("resize");
+        let width  =  window.innerWidth;
+        let height =  window.innerHeight;
+    }
+
+    window.onload = function()
+    {
+        console.log("onload");
+        Load().then(() =>
+        {
+            console.log("Start Game");
+            Game();
+        });
+
+    };
+
+
+
+
+    function Game()
+    {
+        GameLoop();
+        stats.update();
+        requestAnimationFrame(Game);
+    }
+
+    </script>
+
+
+ 
+</body>
+</html>

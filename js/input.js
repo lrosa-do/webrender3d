@@ -147,6 +147,8 @@ class VirtualPad
 
     static ActiveKeys()
     {
+        if (VirtualPad.keys.length === 0) return false;
+        if (Gui.HasFocus()) return false;
         for (let i = 0; i < VirtualPad.keys.length; i++)
         {
             if (VirtualPad.keys[i].active)
@@ -159,6 +161,7 @@ class VirtualPad
 
     static OnMouseDown(x,y)
     {
+        if (Gui.HasFocus()) return ;
         for (let i = 0; i < VirtualPad.keys.length; i++)
         {
             if (VirtualPad.keys[i].bound.contains(x,y))
@@ -171,6 +174,7 @@ class VirtualPad
     }
     static OnMouseUp(x,y)
     {
+        if (Gui.HasFocus()) return ;
         for (let i = 0; i < VirtualPad.keys.length; i++)
         {
             if (VirtualPad.keys[i].bound.contains(x,y))

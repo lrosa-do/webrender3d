@@ -421,6 +421,76 @@ class LineBatch extends Batch
         }
     }
     
+
+    DrawBoundingBox(box)
+    {
+        this.Vertex3f(box.min.x, box.min.y, box.min.z);
+        this.Vertex3f(box.max.x, box.min.y, box.min.z);
+        
+    
+        this.Vertex3f(box.max.x, box.min.y, box.min.z);
+        this.Vertex3f(box.max.x, box.max.y, box.min.z);
+    
+        this.Vertex3f(box.max.x, box.max.y, box.min.z);
+        this.Vertex3f(box.min.x, box.max.y, box.min.z);
+    
+        this.Vertex3f(box.min.x, box.max.y, box.min.z);
+        this.Vertex3f(box.min.x, box.min.y, box.min.z);
+    
+        this.Vertex3f(box.min.x, box.min.y, box.max.z);
+        this.Vertex3f(box.max.x, box.min.y, box.max.z);
+    
+        this.Vertex3f(box.max.x, box.min.y, box.max.z);
+        this.Vertex3f(box.max.x, box.max.y, box.max.z);
+    
+        this.Vertex3f(box.max.x, box.max.y, box.max.z);
+        this.Vertex3f(box.min.x, box.max.y, box.max.z);
+    
+        this.Vertex3f(box.min.x, box.max.y, box.max.z);
+        this.Vertex3f(box.min.x, box.min.y, box.max.z);
+    
+        this.Vertex3f(box.min.x, box.min.y, box.min.z);
+        this.Vertex3f(box.min.x, box.min.y, box.max.z);
+    
+        this.Vertex3f(box.max.x, box.min.y, box.min.z);
+        this.Vertex3f(box.max.x, box.min.y, box.max.z);
+    
+        this.Vertex3f(box.max.x, box.max.y, box.min.z);
+        this.Vertex3f(box.max.x, box.max.y, box.max.z);
+    
+        this.Vertex3f(box.min.x, box.max.y, box.min.z);
+        this.Vertex3f(box.min.x, box.max.y, box.max.z);
+
+    }
+
+    DrawTransformBoundingBox(box,mat)
+    {
+        const edges = box.getEdges();
+        const numEdges = edges.length;
+        for (let i = 0; i < numEdges; i++) 
+        {
+            edges[i]= mat.transformVector(edges[i]);
+        }
+
+ 
+
+        this.Line3D(edges[5].x, edges[5].y, edges[5].z, edges[1].x, edges[1].y, edges[1].z);
+        this.Line3D(edges[1].x, edges[1].y, edges[1].z, edges[3].x, edges[3].y, edges[3].z);
+        this.Line3D(edges[3].x, edges[3].y, edges[3].z, edges[7].x, edges[7].y, edges[7].z);
+        this.Line3D(edges[7].x, edges[7].y, edges[7].z, edges[5].x, edges[5].y, edges[5].z);
+
+        this.Line3D(edges[0].x, edges[0].y, edges[0].z, edges[2].x, edges[2].y, edges[2].z);
+        this.Line3D(edges[2].x, edges[2].y, edges[2].z, edges[6].x, edges[6].y, edges[6].z);
+        this.Line3D(edges[6].x, edges[6].y, edges[6].z, edges[4].x, edges[4].y, edges[4].z);
+        this.Line3D(edges[4].x, edges[4].y, edges[4].z, edges[0].x, edges[0].y, edges[0].z);
+
+        this.Line3D(edges[1].x, edges[1].y, edges[1].z, edges[0].x, edges[0].y, edges[0].z);
+        this.Line3D(edges[3].x, edges[3].y, edges[3].z, edges[2].x, edges[2].y, edges[2].z);
+        this.Line3D(edges[7].x, edges[7].y, edges[7].z, edges[6].x, edges[6].y, edges[6].z);
+        this.Line3D(edges[5].x, edges[5].y, edges[5].z, edges[4].x, edges[4].y, edges[4].z);
+
+
+    }
     
 
 
@@ -2054,23 +2124,23 @@ Flush()
    if (this.vertexCount === 0) return;
 
  
-    Core.EnableBlend(true);
-    Core.SetBlendMode(BlendMode.Normal);
-    Core.SetTextureShader();
+   
+    Core.Set2DMaterial();
 
+    
+    let shader = Core.GetShader("texture");
+    Core.SetShader(shader);
+ 
    
    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.vertices.subarray(0, this.vertexIndex));
    gl.bindBuffer(gl.ARRAY_BUFFER, null);
-
-
-
-
   
 
 
     gl.bindVertexArray(this.VAO);
-    this.currentBaseTexture.Use();
+    Core.SetTexture(this.currentBaseTexture);
+
     Core.DrawElements(gl.TRIANGLES, (this.vertexCount / 4) * 6, 0);
 
     gl.bindVertexArray(null);
@@ -2424,19 +2494,18 @@ DrawTransformedClip(texture, src_x, src_y, src_width,src_height, matrix, x_align
         
   
 
+    this.TextCoords(this.quads[0].tx, this.quads[0].ty);
+    this.Vertex2(this.quads[0].x, this.quads[0].y);
 
-    this.TextCoords(left, top);
-    this.Vertex2( this.quad[0], this.quad[1]);
+    this.TextCoords(this.quads[1].tx, this.quads[1].ty);
+    this.Vertex2(this.quads[1].x, this.quads[1].y);
 
-    this.TextCoords(left, bottom);
-    this.Vertex2( this.quad[2], this.quad[3]);
+   
+    this.TextCoords(this.quads[2].tx, this.quads[2].ty);
+    this.Vertex2(this.quads[2].x, this.quads[2].y);
 
-    this.TextCoords(right, bottom);
-    this.Vertex2( this.quad[4], this.quad[5]);
-
-    this.TextCoords(right, top);
-    this.Vertex2( this.quad[6], this.quad[7]);
-
+    this.TextCoords(this.quads[3].tx, this.quads[3].ty);
+    this.Vertex2(this.quads[3].x, this.quads[3].y);
 
   
 }
@@ -2536,18 +2605,18 @@ DrawTransformed(texture,  matrix, x_align=Allign.Left,y_align=Allign.Top)
         
   
 
+    this.TextCoords(this.quads[0].tx, this.quads[0].ty);
+    this.Vertex2(this.quads[0].x, this.quads[0].y);
 
-    this.TextCoords(left, top);
-    this.Vertex2( this.quad[0], this.quad[1]);
+    this.TextCoords(this.quads[1].tx, this.quads[1].ty);
+    this.Vertex2(this.quads[1].x, this.quads[1].y);
 
-    this.TextCoords(left, bottom);
-    this.Vertex2( this.quad[2], this.quad[3]);
+   
+    this.TextCoords(this.quads[2].tx, this.quads[2].ty);
+    this.Vertex2(this.quads[2].x, this.quads[2].y);
 
-    this.TextCoords(right, bottom);
-    this.Vertex2( this.quad[4], this.quad[5]);
-
-    this.TextCoords(right, top);
-    this.Vertex2( this.quad[6], this.quad[7]);
+    this.TextCoords(this.quads[3].tx, this.quads[3].ty);
+    this.Vertex2(this.quads[3].x, this.quads[3].y);
 
 
   
@@ -2718,17 +2787,18 @@ Draw(texture, x, y, width, height)
 
 
     
-    this.TextCoords(this.quads[1].tx, this.quads[1].ty);
-    this.Vertex2(this.quads[1].x, this.quads[1].y);
-
     this.TextCoords(this.quads[0].tx, this.quads[0].ty);
     this.Vertex2(this.quads[0].x, this.quads[0].y);
 
-    this.TextCoords(this.quads[3].tx, this.quads[3].ty);
-    this.Vertex2(this.quads[3].x, this.quads[3].y);
+    this.TextCoords(this.quads[1].tx, this.quads[1].ty);
+    this.Vertex2(this.quads[1].x, this.quads[1].y);
 
+   
     this.TextCoords(this.quads[2].tx, this.quads[2].ty);
     this.Vertex2(this.quads[2].x, this.quads[2].y);
+
+    this.TextCoords(this.quads[3].tx, this.quads[3].ty);
+    this.Vertex2(this.quads[3].x, this.quads[3].y);
 
 
 }
@@ -3126,17 +3196,18 @@ DrawClip(texture, x, y, width, height, src_x, src_y, src_width, src_height)
 
 
     
-    this.TextCoords(this.quads[1].tx, this.quads[1].ty);
-    this.Vertex2(this.quads[1].x, this.quads[1].y);
-
     this.TextCoords(this.quads[0].tx, this.quads[0].ty);
     this.Vertex2(this.quads[0].x, this.quads[0].y);
 
-    this.TextCoords(this.quads[3].tx, this.quads[3].ty);
-    this.Vertex2(this.quads[3].x, this.quads[3].y);
+    this.TextCoords(this.quads[1].tx, this.quads[1].ty);
+    this.Vertex2(this.quads[1].x, this.quads[1].y);
 
+   
     this.TextCoords(this.quads[2].tx, this.quads[2].ty);
     this.Vertex2(this.quads[2].x, this.quads[2].y);
+
+    this.TextCoords(this.quads[3].tx, this.quads[3].ty);
+    this.Vertex2(this.quads[3].x, this.quads[3].y);
 
 
 
@@ -4498,7 +4569,7 @@ class Font
     {
         return new Promise((resolve) => 
         {
-            console.log("Processando fonte");
+          
             this.processData(atob(data));
             let image = new Image();
             this.texture = new Texture2D();
@@ -4558,13 +4629,17 @@ class Font
 
     Flush()
     {
+
      
 
        if (this.vertexCount === 0) return;
 
      
-        Core.SetBlend(true);
-        Core.SetBlendMode(BlendMode.Normal);
+       Core.Set2DMaterial();
+
+        
+
+    
 
              
 
@@ -4584,7 +4659,7 @@ class Font
       
 
         Core.SetTexture(this.texture);
-      //  this.texture.Use();
+ 
         gl.bindVertexArray(this.VAO);
         gl.drawElements(gl.TRIANGLES, (this.vertexCount / 4) * 6, gl.UNSIGNED_SHORT, 0);
   

@@ -421,6 +421,58 @@ class Assets
       
 }
 
+class LocalStorage 
+{
+    static Save(key, value)
+    {
+        localStorage.setItem(key, JSON.stringify(value));
+    }
+
+    static Remove(key)
+    {
+        localStorage.removeItem(key);
+    }
+
+    static Has(key)
+    {
+        return localStorage.getItem(key) !== null;
+    }
+
+    static Load(key)
+    {
+        return JSON.parse(localStorage.getItem(key));
+    }
+}
+
+class SessionStorage 
+{
+    static Save(key, value)
+    {
+        sessionStorage.setItem(key, JSON.stringify(value));
+    }
+
+    static Remove(key)
+    {
+        sessionStorage.removeItem(key);
+    }
+
+    static Has(key)
+    {
+        return sessionStorage.getItem(key) !== null;
+    }
+
+    static Load(key)
+    {
+        if (sessionStorage.getItem(key) === null)
+        {
+            console.warn('Item não encontrado: ' + key);
+            return null;
+        }
+        return JSON.parse(sessionStorage.getItem(key));
+    }
+
+}
+
 
 /*
 var js_html_compat_ArrayBuffer = function(a) {

@@ -11,13 +11,15 @@
     <canvas id="canvas"></canvas>
   
 
-   <!-- <script src="https://mrdoob.github.io/stats.js/build/stats.min.js"></script>-->
-    <script src="js/perlin.js"></script> 
+    <script src="https://mrdoob.github.io/stats.js/build/stats.min.js"></script>
     <script src="js/data.js"></script>
     <script src="js/math.js"></script>
     <script src="js/input.js"></script>
-    <script src="js/render.js"></script>
+    <script src="js/shaders.js"></script>
+    <script src="js/core.js"></script>
     <script src="js/batch.js"></script>
+   
+    <script src="js/imgui.js"></script>
     <script src="js/mesh.js"></script>
     <script src="js/assets.js"></script>
 
@@ -36,8 +38,8 @@
 
 
 
-      //  var stats=new Stats();
-      //  document.body.appendChild(stats.dom);
+        var stats=new Stats();
+        document.body.appendChild(stats.dom);
 
 
         let CurrentTime, ElapsedTime, PreviousTime = Date.now(), LagTime = 0;
@@ -65,31 +67,45 @@
         Core.Init(width, height);
         Assets.Init();
         Input.Init();
+        Gui.Init();
 
-     
+        let filter = new Bloom(width,height);
   
 
-        let camera = new Camera(0,15,15,0,0,0);
-        let proj =Matrix4.Perspective(45, width/height, 0.1, 1000);
+        let camera = new Camera(0,5,5,0,0,0);
+    
         let identity=Matrix4.Identity();
         let lines =new LineBatch(4024);
         let fill = new FillBatch(4024);
+        let sprites = new SpriteBatch(1024);
         
         let ortho = Matrix4.Ortho(0, width, height, 0, -10, 10);
 
+        let quad = new ScreenQuad();
+        let depth = new ShadowCaster(512,512);
 
-        let font= new Font(2024);
-        font.Create(defaultFontImage, defaultFontData);
-      
-        let plane = Mesh.CreatePlane(10,10, 10,10, new AmbientMaterial());
-        plane.CalculateNormals(true);
-  
+        Renderer.Init();
+
 
 
         let skybox = new SkyBox();
 
+        let font= Core.GetDefaultFont();
+ 
+        let cube = Mesh.CreateCube(1, new LightMaterial());
+        let plane = Mesh.CreatePlane(40,20, 20,20, new LightMaterial());
+        let sphere = Mesh.CreateSphere(32, 32, new LightMaterial());
+        let cylinder = Mesh.CreateCylinder(32, 32, new LightMaterial());
+        let cone = Mesh.CreateCone(32, 32, new LightMaterial());
+        let torus = Mesh.CreateTorus(32, 32, 0.5, 1, new LightMaterial());
+        let teapot = new Mesh();
 
-   
+        Assets.LoadFile("assets/mesh/42.obj").then((data) =>
+        {
+            teapot.LoadOBJ(data, new LightMaterial());
+        });
+
+      //  teapot.LoadOBJ( new LightDirectionalMaterial());
 
 
          Assets.AddTexture("wall", "assets/wall.jpg");
@@ -97,10 +113,9 @@
         Assets.AddTexture("metal", "assets/metal.png");
         Assets.AddTexture("cube", "assets/cube.png");
         Assets.AddTexture("marble", "assets/marble.jpg");
-        Assets.AddTexture("atlas", "assets/atlasr.png");
-        
 
-         Assets.AddImage("skybox0",      "assets/skybox/right.jpg");
+        
+        Assets.AddImage("skybox0",      "assets/skybox/right.jpg");
          Assets.AddImage("skybox1",      "assets/skybox/left.jpg");
 
          Assets.AddImage("skybox2",      "assets/skybox/top.jpg");
@@ -110,9 +125,7 @@
          Assets.AddImage("skybox5",      "assets/skybox/back.jpg");
         
 
-       
-
-        Assets.AddTextureCube("skybox","skybox");
+         Assets.AddTextureCube("skybox","skybox");
 
 
        
@@ -128,27 +141,33 @@
 
         Assets.OnComplete = function()
         {
-         
+           cube.GetMaterial(0).SetTexture(Assets.GetTexture("container"));
            plane.GetMaterial(0).SetTexture(Assets.GetTexture("wall"));
-
+           sphere.GetMaterial(0).SetTexture(Assets.GetTexture("marble"));
+           cylinder.GetMaterial(0).SetTexture(Assets.GetTexture("metal"));
+           cone.GetMaterial(0).SetTexture(Assets.GetTexture("cube"));
+           torus.GetMaterial(0).SetTexture(Assets.GetTexture("container"));
+           teapot.GetMaterial(0).SetTexture(Assets.GetTexture("metal"));
            skybox.SetTexture(Assets.GetTexture("skybox"));
-
-
-
         }
 
         Assets.OnProgress = function(filename, progress, total)
         {
+            Core.Reset();
             Core.Clear();
 
             
     
-            let shader = Core.GetShader("texture");
+        
 
             Core.SetMatrix(PROJECTION_MATRIX, ortho);
             Core.SetMatrix(VIEW_MATRIX, identity);
             Core.SetMatrix(MODEL_MATRIX, identity);
-            Core.SetShader(shader);
+     
+
+   
+      
+
  
  
             font.SetColor(RED);
@@ -159,7 +178,7 @@
 
             font.Render();
 
-         //   console.log("Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
+            console.log("Load:  "+filename+" Progresso: " + Math.floor((progress/total)*100) +"%");
         };
 
 
@@ -185,612 +204,60 @@
 
     VirtualPad.Add(Key.A,5,height-220,100,100);
     VirtualPad.Add(Key.D,width-100,height-220,100,100);
+    let angle=0;
+
+    function drawPlanet(fill, radius,  distanceFromSun,  rotationSpeed) 
+{
+            fill.Rotate((CurrentTime/1000) * rotationSpeed,0,1,0);
+            fill.Translate(distanceFromSun,0,0);
+            fill.Sphere(0,0,0,radius);
 
 
-    const chunkSize = 16;
-    const chunkHeight = 64;
-    const CHUNK_AREA = chunkSize * chunkSize;
-    const CHUNK_VOLUME = chunkSize * chunkHeight * chunkSize;
-
-
-    let totalVertex = 0;
-    let totalTriangles = 0;
-    
-    let frame=0;
-
-    class Chunk
-    {
-        constructor(name,x,z,world)
-        {
-            this.center = new Vector3(x,0,z);
-            this.x = x;
-            this.z = z;
-            this.name = name;
-            this.world=world;
-
-            console.log(" Chunk :" ,this.name);
-            this.left=null;
-            this.right=null;
-            this.front=null;
-            this.back=null;
-            this.isDirty=false;
-
-  
-
-
-
-            
-      
-            this.active = false;
-            this.grid = new Array(CHUNK_VOLUME);   
-            this.Fill(0);   
-            this.material = world.material;
-            this.textCoords = world.textCoords;
-
-            this.mesh = new Mesh();
-            this.mesh.AddMaterial(this.material);
-            this.surface = this.mesh.CreateSurface(0,false);
-            this.transform = Matrix4.Translate(x,0,z);
-
-          
-
-        }
-
-        Dirty()
-        {
-            this.isDirty=true;
-        }
-
-        is_void(x,y,z)
-        {
-
-
-         
-           if (x < 0 || y<0 || z < 0 || x >= chunkSize || y>=chunkHeight  || z >= chunkSize)
-           {
-
-                if (this.left!==null)
-                {
-                    if (x<0)
-                    {
-                        return this.left.is_void(chunkSize-1,y,z);
-                    }
-                }
-
-                if (this.right!==null)
-                {
-                    if (x>=chunkSize)
-                    {
-                        return this.right.is_void(0,y,z);
-                    }
-                }
-
-                if (this.front!==null)
-                {
-                    if (z>=chunkSize)
-                    {
-                        return this.front.is_void(x,y,0);
-                    }
-                }
-
-                if (this.back!==null)
-                {
-                    if (z<0)
-                    {
-                        return this.back.is_void(x,y,chunkSize-1);
-                    }
-                }
-
-
-                   
-
-                return true;
-           }
-           return this.grid[x + chunkSize * (y + chunkHeight * z)] == 0;
-        }
-
-        Add(x, y, z, id)
-        {
-            if (id>=10)
-                id=10;
-            
-                //0 erva 
-                //1 terra
-                //2 terra erva em cima
-                //3 agua
-                //6 erva mais escura
-                //8 dirt
-                //9 pedra
-
-                let index = 0;
-
-                let sides =index;
-                let top =index;
-                let bottom =index;
-
-                if (y<=5)
-                {
-                    sides = 9;
-                    top = 9;
-                    bottom = 9;
-                } else 
-                if (y>5 && y<=8)
-                {
-                    sides = 3;
-                    top = 3;
-                    bottom = 3;
-                }  else 
-                if (y>8 && y<=15)
-                {
-                    sides = 8;
-                    top = 8;
-                    bottom = 8;
-                } else 
-                if (y>15 && y<=chunkHeight/2+4)
-                {
-                    sides = 1;
-                    top = 1;
-                    bottom = 1;
-                } else
-                {
-                    
-                    if (this.is_void(x, y + 1, z))
-                    {
-                        sides = 2;
-                    }
-        
-                    top = 0;
-                    bottom = 0;
-                }
-                
-
-        
-              
-            let width =1024;
-            let height=1024;
-
-       
-
-             
-            if (this.is_void(x, y, z + 1))
-               this.surface.AddFace( FaceSides.FRONT ,x,y,z, width,height, this.textCoords  ,sides);
-            
-            if (this.is_void(x, y, z - 1))
-                this.surface.AddFace( FaceSides.BACK  ,x,y,z,  width,height, this.textCoords  ,sides);
-
-
-            if (this.is_void(x - 1, y, z))
-                this.surface.AddFace( FaceSides.LEFT  ,x,y,z,width,height, this.textCoords  ,sides);
-        
-            if (this.is_void(x +1, y, z))
-               this.surface.AddFace( FaceSides.RIGHT ,x,y,z, width,height, this.textCoords  ,sides);
-
-            if (this.is_void(x, y + 1, z))
-                 this.surface.AddFace( FaceSides.TOP   ,x,y,z, width,height, this.textCoords  ,top);
-            
-            if (this.is_void(x, y - 1, z))
-                this.surface.AddFace( FaceSides.BOTTOM,x,y,z,width,height, this.textCoords  ,bottom);
-                
-
-           
-        }
-        Set(x,y,z,id)
-        {
-            this.grid[ x + chunkSize * (y + chunkHeight * z) ] = id;
-        }
-        Get(x,y,z)
-        {
-            return this.grid[ x + chunkSize * (y + chunkHeight * z) ];
-        }
-        Fill(id)
-        {
-            for (let i = 0; i < CHUNK_VOLUME; i++) 
-            {
-                this.grid[i] = id;
-            }
-        }
-         Rebuild()
-        {
-          //  console.log("REBUILD --- ",this.name);
-            this.surface.Clear();
-            this.Build();
-
-        }
-        UpdateNeighbors()
-        {
-            if (this.left===null)
-            {
-                this.left=world.GetChunk(this.x - chunkSize, this.z);
-                if (this.left!==null)
-                {
-                    this.Dirty();
-                }
-            }
-
-            if (this.right===null)
-            {
-                this.right=world.GetChunk(this.x + chunkSize, this.z);
-                if (this.right!==null)
-                {
-                    this.Dirty();
-                }
-            }
-
-            if (this.front===null)
-            {
-                this.front=world.GetChunk(this.x, this.z + chunkSize);
-                if (this.front!==null)
-                {
-                    this.Dirty();
-                }
-            }
-
-            if (this.back===null)
-            {
-                this.back=world.GetChunk(this.x, this.z - chunkSize);
-                if (this.back!==null)
-                {
-                    this.Dirty();
-                }
-            }
-
-        }
-        
-        Build()
-        {
-
-                
-            for (let i = 0; i < chunkSize; i++) 
-            {
-                    for (let j = 0; j < chunkSize; j++) 
-                    {                    
-                    
-                    for (let k = 0; k < chunkHeight; k++) 
-                    {
-                                let id = this.Get(i, k, j);
-                                if (id > 0)
-                                {
-                                    this.Add( i, k,  j);
-                                }
-                        }
-                    }
-            }
-
-           totalVertex += this.surface.GetTotalVertices();
-           totalTriangles += this.surface.GetTotalTriangles();
-           this.isDirty=false;
-        }
- 
-        Render(player)
-        {
-
-            let distance = Vector3.Distance(this.center,player);
-          //  if (distance>(chunkSize*6))
-          //      return;
-            Core.SetMatrix(MODEL_MATRIX,  this.transform);
-            this.mesh.Render();
-
-            if (this.isDirty)
-            {
-                this.Rebuild();
-                this.isDirty=false;
-            }
-          
-        }
-    }
-
-    function smoothFilter(x, z, height, smoothness) 
-    {
-    let total = height;
-    let count = 1;
-
-    for (let dx = -smoothness; dx <= smoothness; dx++) 
-    {
-        for (let dz = -smoothness; dz <= smoothness; dz++)
-         {
-            if (dx !== 0 || dz !== 0) 
-            {
-                let nx = x + dx;
-                let nz = z + dz;
-
-                total += noise.simplex2(nx, nz);
-                count++;
-            }
-        }
-    }
-
-    return total / count;
 }
 
 
-    class World
-    {
-        constructor()
-        {
-            Perlin.Init(123);
-            this.chunks = [];
-            this.loadedChunks ={};
-            this.isDirty=false;
-            //this.textCoords = GenerateTextureAtlas(5,5,15);
-           // this.material = new TextureMaterial();// new AmbientMaterial();
-            
-            this.textCoords = Rectangle.CreateAtlasFrames(1024,1024,4,4);
-           
+let restoreToCamera=false;
+    let cameraOBJ = {x:0,y:0,z:0,yaw:0,pitch:0};
+    let elapsed=0;
+    let duration = 2;
 
-            this.material =  new AmbientMaterial();
-           Assets.GetQueueTexture("atlas").then((texture) =>
-            {
-                this.material.SetTexture(texture);
-             });
-
-            //  let count = 20;
-            //  for (let x = -count; x <= count; x++) 
-            //  {
-            //      for (let z = -count; z <= count; z++) 
-            //      {
-            //          this.loadChunk(x * chunkSize, z * chunkSize);
-            //      }
-            //  }
-
-
-            let build = async () =>
-            {
-            //    await this.loadChunk(0 * chunkSize,0);
-            //    await this.loadChunk(1 * chunkSize,0);
-            //    await this.loadChunk(2 * chunkSize,0);
-            //     await this.loadChunk(3 * chunkSize,0);
-            //     await this.loadChunk(4 * chunkSize,0);
-            //     await this.loadChunk(5 * chunkSize,0);
-            //     await this.loadChunk(6 * chunkSize,0);
-            //     await this.loadChunk(7 * chunkSize,0);
-
-            // await this.loadChunk(-chunkSize,0);
-            // await this.loadChunk(-chunkSize*1,0);
-            // await this.loadChunk(-chunkSize*2,0);
-            // await this.loadChunk(-chunkSize*3,0);
-
-            // await this.loadChunk(0,0 * chunkSize);
-            // await this.loadChunk(0,1 * chunkSize);
-            // await this.loadChunk(0,2 * chunkSize);
-             
-            } 
-           
-
-            build();
-           
-
-            
-     
-
-            //  this.loadChunk(-chunkSize,0);
-            //  this.loadChunk(-chunkSize*1,0);
-            //  this.loadChunk(-chunkSize*2,0);
-            //  this.loadChunk(-chunkSize*3,0);
-             
-             
-             
-             
-         
-             // this.loadChunk(0,chunkSize);
-            // this.loadChunk(chunkSize,0);
-            // this.loadChunk(chunkSize,chunkSize);
-
-
-
-                        //  this.loadChunk(0,chunkSize);
-            // this.loadChunk(chunkSize,chunkSize);
-
-            // this.loadChunk(chunkSize,0);
-            // this.loadChunk(chunkSize,chunkSize);
-
-        }
-       
-
-        Render(player)
-        {
-            if (this.isDirty)
-            {
-                for (let i = 0; i < this.chunks.length; i++) 
-                {
-                    this.chunks[i].UpdateNeighbors();
-                }
-                this.isDirty=false;
-            }
-            for (let i = 0; i < this.chunks.length; i++) 
-            {
-                this.chunks[i].Render(player);
-            }
-
-        }
-
-        async loadChunk(x, z) 
-        {
-            const name = `chunk[${x}_${z}]`;
-            if (!this.loadedChunks[name]) 
-            {
-                let chunk = this.createChunk(x, z,name);
-
-             
-                this.loadedChunks[name] = chunk;
-                this.chunks.push(chunk);
-                this.isDirty=true;
-            }
-        }
-
-        GetChunk(x,z)
-        {
-            const name = `chunk[${x}_${z}]`;
-            
-            if (this.ConstainsChunk(x,z))
-            {
-             
-              return  this.loadedChunks[name];
-            } 
-            return null;
-        }
-        ConstainsChunk(x,z)
-        {
-            const name = `chunk[${x}_${z}]`;
-            if (!this.loadedChunks[name]) 
-                return false;
-            else 
-                return true;
-        }
-
-        
-        createChunk(x, z, name) 
-        {
-       
-            if (frame>=9)
-                frame=0;
-            let chunk = new Chunk(name, x, z, this);
-            frame++;
-            for (let i = 0; i < chunkSize; i++) 
-            {
-                for (let j = 0; j < chunkSize; j++) 
-                {
-                //     let value = Math.floor(Math.random()*5);
-                //     let freq = 0.01;
-                        
-
-                //    let height = noise.simplex2((x + i) * freq, (z + j) *freq) ;
-
-  
-                //     for (let k = 0; k < Math.floor(chunkSize * (height + 1)); k++) 
-                //     {
-                //            chunk.Set( i,  k,  j , 1);
-                       
-                //     }
-
-                    // let freq = 0.009; // Frequência inicial
-                    // let amplitude = 0.5; // Amplitude inicial
-                 
-                    let freq = 0.006; // Frequência mais baixa para suavizar as características
-                    let amplitude = 0.6; // Amplitude reduzida para diminuir as variações de altura
-
-
-                    let height = 0;
-                    for (let octave = 0; octave < 4; octave++) 
-                    { 
-                        height += Perlin.Simplex2D((x + i) * freq, (z + j) * freq) * amplitude;
-
-                         freq *= 2; // Aumenta a frequência para cada octave
-                         amplitude /= 2; // Reduz a amplitude para cada octave
-                       
-                    }
-
-
-
-                    // Ajusta a altura para um intervalo específico de 0 a 1
-                    height = (height + 1) / 2; 
-                    let maxHeight = chunkHeight; // Altura máxima do terreno
-                    let minHeight = -1; // Altura mínima do terreno
-
-                    // Converte a altura para o intervalo do terreno
-                    let terrainHeight = Math.floor(minHeight + (maxHeight - minHeight) * height);
-
-                    for (let k = 0; k < terrainHeight; k++) 
-                    {
-                        chunk.Set(i, k, j, 1); // Defina o bloco como sólido
-                    }
-
-
-                 }
-            }
-
-                const left = this.GetChunk(x - chunkSize, z);
-                const right = this.GetChunk(x + chunkSize, z);
-                const front = this.GetChunk(x, z + chunkSize);
-                const back = this.GetChunk(x, z - chunkSize);
-
-                if (left) 
-                {
-                    chunk.left = left;
-                    left.Dirty();
-                  //  console.log("LEFT " + left.name + " " + chunk.name);
-                }
-
-                if (right) 
-                {
-                    chunk.right = right;
-                    right.Dirty();
-                  //  console.log("RIGHT " + right.name + " " + chunk.name);
-                }
-
-                if (front) 
-                {
-                    chunk.front = front;
-                    front.Dirty();
-                  //  console.log("FRONT " + front.name + " " + chunk.name);
-                }
-
-                if (back) 
-                {
-                    chunk.back = back;
-                    back.Dirty();
-                   // console.log("BACK " + back.name + " " + chunk.name);
-                }
-
-
-            chunk.Build();
-            this.isDirty=true;
-            return chunk;
-            
-        }
-
-       async Generate(px,pz)
-        {
-
-            // let count = 1;
-            //  for (let x = -count; x <= count; x++) 
-            //  {
-            //      for (let z = -count; z <= count; z++) 
-            //      {
-            //          this.loadChunk((px + x) * chunkSize, (pz + z) * chunkSize);
-            //      }
-            //  }
-
-             const playerChunkX = Int(px / chunkSize);
-             const playerChunkZ = Int(pz / chunkSize);
-
-            //  const playerChunkX = Int((player.x / chunkSize) / chunkSize);
-            //  const playerChunkZ = Int((player.z / chunkSize) / chunkSize);
-
-
-            //   const playerChunkX = Math.floor((px + chunkSize / 2) / chunkSize);
-            //   const playerChunkZ = Math.floor((pz + chunkSize / 2) / chunkSize);
-
-
-             const updateRadius = 1; // Quantos chunks à frente/carregar
-
-            //  await this.loadChunk(playerChunkX *chunkSize  , playerChunkZ *chunkSize);
-
-            for (let x = -updateRadius; x <= updateRadius; x++) 
-            {
-                for (let z = -updateRadius; z <= updateRadius; z++) 
-                {
-                    await  this.loadChunk((playerChunkX + x) * chunkSize, (playerChunkZ + z) * chunkSize);
-                }
-            }
-           
-          
-        }
-    }
-
-
-    let world = new World();
-    let player = new Vector3(-2,chunkSize + 1,0);
-     world.Generate(player.x,player.z);
-
-
-    
-
-
-
+    let DrawQuad=false;
     function Update(dt)
     {
+    
 
-      
+        if (restoreToCamera)
+        {
+           
+
+         
+
+                elapsed += dt ;
+                const progress = Math.min(elapsed / duration, 1); 
+                const easedProgress =  Ease.CircIn(progress);
+                     
+               camera.position.x = Lerp(camera.position.x, cameraOBJ.x, easedProgress);
+               camera.position.y = Lerp(camera.position.y, cameraOBJ.y, easedProgress);
+               camera.position.z = Lerp(camera.position.z, cameraOBJ.z, easedProgress);
+               camera.yaw = Lerp(camera.yaw, cameraOBJ.yaw, easedProgress);
+               camera.pitch = Lerp(camera.pitch, cameraOBJ.pitch, easedProgress);
+
+               let distance = Vector3.Distance( new Vector3(cameraOBJ.x,cameraOBJ.y,cameraOBJ.z),camera.position) ;
+
+              
+
+                if (progress >= 1 || distance < 0.5) 
+                {
+                    restoreToCamera = false;
+                    elapsed = 0;
+                } 
+         
+        }
+
+        if (Gui.HasFocus())
+        {
+            return;
+        }
 
         let speed = 45 * dt;
 
@@ -813,41 +280,13 @@
         }
 
    
-           if (Input.IsMouseDown(0) && !VirtualPad.ActiveKeys())
+           if (Input.IsMouseDown(0) && !VirtualPad.ActiveKeys() )
             {
                
                 let xoffset = Mouse.DeltaX;
                 let yoffset = Mouse.DeltaY; 
     
                 camera.Rotate(xoffset * 1, -yoffset *1);
-            }
-
-
-            if (Input.IsKeyDown(Key.ArrowLeft))
-            {
-                player.x -= speed;
-            }else
-            if (Input.IsKeyDown(Key.ArrowRight))
-            {
-                player.x += speed;
-            }
-
-            if (Input.IsKeyDown(Key.ArrowUp))
-            {
-                player.z -= speed;
-            }else
-            if (Input.IsKeyDown(Key.ArrowDown))
-            {
-                player.z += speed;
-            }
-
-            if (Input.IsKeyDown(Key.P))
-            {
-                player.y += speed;
-            }else
-            if (Input.IsKeyDown(Key.L))
-            {
-                player.y -= speed;
             }
         
       
@@ -856,32 +295,20 @@
         
     }
 
-    let  lightPosition = Core.light.position;
- 
-
-
-    const maxVertices = gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS);
-const maxTriangles = maxVertices / 3;
-console.log(`Máximo de vértices: ${maxVertices}, Máximo de triângulos: ${maxTriangles}`);
 
 
     function Render()
     {
+        Core.SetDepthTest(true);
+        Core.SetBlend(false);
+        Core.SetCullFace(true);
       
-        Core.SetClearColor(0.0, 0.0, 0.4, 1.0);
-        Core.Clear();
+      
 
 
-        Core.SetMatrix(PROJECTION_MATRIX, proj);
+
         Core.SetMatrix(MODEL_MATRIX, identity);
-
-        let position = camera.position;
-        world.Generate(player.x,player.z);
-
-     if (Input.IsKeyReleased(Key.Space))
-        {
-            world.Generate(player.x,player.z);
-        }
+  
 
 
         
@@ -889,43 +316,181 @@ console.log(`Máximo de vértices: ${maxVertices}, Máximo de triângulos: ${max
 
         camera.Update();
 
+        const frutrum = camera.GetFrustum();
 
-
-        Core.SetMatrix(MODEL_MATRIX, identity);
-        skybox.Render();
-        world.Render(player);
-        plane.Render();
-
-
-
-        lightPosition.x =player.x;
-        lightPosition.y =player.y;
-        lightPosition.z =player.z;
+        const ambient = Core.GetAmbientLight();
+//first pass
         
 
+
+
+
+
+        
+        depth.Begin();
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(-6,1,-2);
+        Core.Rotate(CurrentTime/1000,0,1,0);
+        teapot.Render();
+        Core.PopMatrix();
+     
+
+        
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(2,1,0);
+        Core.Rotate(CurrentTime/1000,1,0,0);
+        Core.Rotate(CurrentTime/1000,0,1,0);
+        sphere.Render();
+        Core.PopMatrix();
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(0,1,-2);
+        Core.Rotate(CurrentTime/1000,0,0,1);
+        cylinder.Render();
+        Core.PopMatrix();
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(-2,0.5,0);
+        cone.Render();
+        Core.PopMatrix();
+
+  
+       
+
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(3,1,-5);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
+            torus.Render();
+        Core.PopMatrix();
+        
+
+
+       Core.PushMatrix();
+       Core.Identity();
+       Core.Translate(5,1,0);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
  
+            cube.Render();
+        
+            Core.Translate(0,1,-1);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
+            cube.Render();
+        Core.PopMatrix();
+
+       
         
 
-        fill.SetColor3f(Core.light.color.r,Core.light.color.g,Core.light.color.b);
-        fill.Sphere(lightPosition.x,lightPosition.y,lightPosition.z,0.2);
+         depth.End();
+    //     Core.SetDepthTest(true);
 
-        fill.SetColor3f(1,1,1);
-        fill.Sphere(player.x,player.y,player.z,1);
-
-
-        lines.Grid3D(10,10);
-
-
-        
+//***************normal pass 
+        Core.SetClearColor(0.0, 0.0, 0.4, 1.0);
+        Core.Clear();
+        Core.SetViewport(0, 0, width, height);  
         Core.SetMatrix(MODEL_MATRIX, identity);
-       
-   
-       
-        Core.light.position = lightPosition;
+
+        filter.Begin();
+
+        skybox.Render();
+
+        let shader = Core.GetShader("light");
+        Core.SetShader(shader);
+
+
+
+        plane.Render();
+    
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(-6,1,-2);
+        Core.Rotate(CurrentTime/1000,0,1,0);
+        teapot.Render();
+        Core.PopMatrix();
+     
+        
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(2,1,0);
+        Core.Rotate(CurrentTime/1000,1,0,0);
+        Core.Rotate(CurrentTime/1000,0,1,0);
+        sphere.Render();
+        Core.PopMatrix();
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(0,1,-2);
+        Core.Rotate(CurrentTime/1000,0,0,1);
+        cylinder.Render();
+        Core.PopMatrix();
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(-2,0.5        ,0);
+        cone.Render();
+        Core.PopMatrix();
+
+  
        
 
-        fill.Render();
-        lines.Render();//draw all
+
+        Core.PushMatrix();
+        Core.Identity();
+        Core.Translate(3,1,-5);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
+
+    
+                torus.Render();
+      
+
+        Core.PopMatrix();
+        
+       Core.PushMatrix();
+       Core.Identity();
+       Core.Translate(5,1,0);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
+ 
+            cube.Render();
+        
+            Core.Translate(0,1,-1);
+            Core.Rotate(CurrentTime/1000,1,0,0);
+            Core.Rotate(CurrentTime/1000,0,1,0);
+            Core.Rotate(CurrentTime/1000,0,0,1);
+     
+            cube.Render();
+        Core.PopMatrix();
+
+
+        filter.End();
+
+       
+        filter.Render();
+                
+        
+
+        shader = Core.GetShader("solid");
+        Core.SetMatrix(MODEL_MATRIX, identity);
+        Core.SetShader(shader);
+        lines.Grid3D(10,10);
+   
+        lines.Render();
 
     
 
@@ -935,56 +500,142 @@ console.log(`Máximo de vértices: ${maxVertices}, Máximo de triângulos: ${max
 
    
     
-
-        VirtualPad.Render(fill);
-
-
-        fill.SetColor(RED);
-        fill.Rectangle(Mouse.X,Mouse.Y,20,20);
-
-        
 
         Core.SetMatrix(PROJECTION_MATRIX, ortho);
         Core.SetMatrix(VIEW_MATRIX, identity);
         Core.SetMatrix(MODEL_MATRIX, identity);
-        fill.Render();//draw all
+
+        // Core.SetBlend(true);
+        // Core.SetDepthTest(false);
+        // Core.SetCullFaceMode(CullMode.Back);
+        // Core.SetDepthFunc(DepthMode.LessOrEqual);
+
+        VirtualPad.Render(fill);
 
 
 
-        Core.SetDepthTest(false);
+        fill.SetColor(RED);
+        fill.Rectangle(Mouse.X,Mouse.Y,20,20);
+        fill.Render();
+
+        if (DrawQuad)
+        {
+        let s = Core.GetShader("screenDepth");
+        Core.SetShader(s);
+        depth.UseTexture(0); 
+        quad.Render();
+        }
+
+ 
+
+
+        const light = Core.GetDirectionalLight();
+
+        shader = Core.GetShader("texture");
+        Core.SetShader(shader);
+      
+
+
+
+        
+
+        if (!DrawQuad)
+        {
+        sprites.SetFlip(false,true);
+        sprites.Draw(depth.texture,width-220,20,200,200);
+        }
+
+        sprites.Render();
+
+
+     
 
         font.SetColor(RED);
-        font.SetSize(22);
+        font.SetSize(18);
         font.Print(100, 20, "FPS: "+Int(CurrentFPS ) );
         font.Print(100, 40, "textures: "+Int(Core.numTextures) + " Draws " + Int(Core.numDrawCalls));
         font.Print(100, 60, "Programs: "+Int(Core.numPrograms) + " Vertices: " + Int(Core.numVertex) + " Triangles: " + Int(Core.numTriangles));
 
-        font.Print(100, 80, "player X: "+player.x.toFixed(2) + " Y: "+player.y.toFixed(2) + " Z: "+player.z.toFixed(2));
-
-        font.Print(100, 100, "Vertices: "+totalVertex + " Triangles: " + totalTriangles);
-
-        const playerChunkX = Int((player.x / chunkSize) );
-        const playerChunkZ = Int((player.z / chunkSize) );
-
-        font.Print(100, 120, "Chunks: "+world.chunks.length + " X: " + playerChunkX + " Z: " + playerChunkZ);
-
-
-
-
-      //  font.Print(100, 120, "Count: "+instance.positions.length +" "+ world.chunks.length  );
-
-
+        font.Print(100,80,"Light" + light.direction.x + " " + light.direction.y + " " + light.direction.z);
 
        // font.Print(50,100, ` Mouse X  ${Mouse.X}  Mouse Y ${Mouse.X}  Mouse Delta x ${Mouse.DeltaX}  Mouse Delta y ${Mouse.DeltaY}`);
-    //   Core.SetCullFace(false);
+       
 
-        font.Render();//draw all
+ 
 
-        Core.SetCullFace(true);
-        Core.SetDepthTest(true);
-
-
+        font.Render();
+   
       //  Core.SetCullFace(false);
+ 
+
+
+        Gui.Begin(10,150,300,550,{bar:true,background:true,dragging:true,title:"Config" });
+
+        Gui.Text(100, 10, "Camera State" );
+        if (Gui.Button(40, 40, 100, 30,"Save"))
+        {
+          
+            SessionStorage.Save("camera", {x:camera.position.x, y:camera.position.y, z:camera.position.z,yaw:camera.yaw,pitch:camera.pitch});
+        }
+
+       if ( Gui.Button(150, 40, 100, 30,"Restore"))
+       {
+              let data = SessionStorage.Load("camera");
+              if (data)
+              {
+                cameraOBJ.x = data.x;
+                cameraOBJ.y = data.y;
+                cameraOBJ.z = data.z;
+                cameraOBJ.yaw = data.yaw;
+                cameraOBJ.pitch = data.pitch;
+                const distance = Vector3.Distance( new Vector3(cameraOBJ.x,cameraOBJ.y,cameraOBJ.z),camera.position);
+                duration =2;// Vector3.Distance( new Vector3(cameraOBJ.x,cameraOBJ.y,cameraOBJ.z),camera.position) / 100;
+                restoreToCamera = true;
+              }
+         }
+    
+   
+
+        Gui.Line(10, 80, 290, 80);
+
+
+
+
+
+
+
+     
+        Gui.Text(70, 90, "Directional Light" );
+        light.direction.x = Gui.Slider(10, 120, 150, 20, "","X", -1, 1, light.direction.x);
+        light.direction.y = Gui.Slider(10, 150, 150, 20, "","Y", -1, 1, light.direction.y);
+        light.direction.z = Gui.Slider(10, 180, 150, 20, "","Z", -1, 1, light.direction.z);
+
+        light.color.r = Gui.Slider(10, 210, 150, 20, "","Red",0, 1, light.color.r);
+        light.color.g = Gui.Slider(10, 240, 150, 20, "","Green",0, 1, light.color.g);
+        light.color.b = Gui.Slider(10, 270, 150, 20, "","Blue",0, 1, light.color.b);
+
+        light.ambientIntensity = Gui.Slider(10, 300, 150, 20, "","Ambient Intensity",0, 5, light.ambientIntensity);
+        light.diffuseIntensity = Gui.Slider(10, 330, 150, 20, "","Diffuse Intensity",0, 5, light.diffuseIntensity);
+        light.specularIntensity = Gui.Slider(10, 360, 150, 20, "","Specular Intensity",0, 264, light.specularIntensity);
+        light.shininess = Gui.Slider(10, 390, 150, 20, "","Shininess",0, 264, light.shininess);
+
+        DrawQuad = Gui.CheckBox(10, 420,20,20, "Draw Quad", DrawQuad);
+
+        Gui.Image(depth.texture,120,420,140,90,false,true);
+
+        
+
+       //Slider(x, y, w, h, labelLeft,labelRight, min, max, value)
+        Gui.End();
+
+  
+        Gui.Render();
+
+  
+
+      
+
+
    
 
     }
@@ -1002,6 +653,7 @@ console.log(`Máximo de vértices: ${maxVertices}, Máximo de triângulos: ${max
         PreviousTime = CurrentTime;
         LagTime += (ElapsedTime * 1000);
         FrameCounter++;
+        Core.ResetStats();
 
 
        
@@ -1032,9 +684,9 @@ console.log(`Máximo de vértices: ${maxVertices}, Máximo de triângulos: ${max
 
     window.onresize = function()
     {
-    //  //   console.log("resize");
-    //     let width  =  window.innerWidth;
-    //     let height =  window.innerHeight;
+        console.log("resize");
+        let width  =  window.innerWidth;
+        let height =  window.innerHeight;
     }
 
     window.onload = function()
@@ -1054,7 +706,7 @@ console.log(`Máximo de vértices: ${maxVertices}, Máximo de triângulos: ${max
     function Game()
     {
         GameLoop();
-     //   stats.update();
+        stats.update();
         requestAnimationFrame(Game);
     }
 

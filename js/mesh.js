@@ -57,35 +57,52 @@ const FaceSides =
 
 class Material
 {
-    constructor()
+    constructor(name)
     {
         this.textures=[];
         this.color = new Color(1,1,1,1);
-        this.shaderName="solid";
+        this.name=name;
         this.attributes = [POSITION,COLOR];
-    }
-    Set()
-    {
-        let shader = Core.GetShader(this.shaderName);
-        Core.SetShader(shader);
+        this.cullFaces = true;
+        this.cullMode = CullMode.Back;
+        this.depth     =true;
+        this.blend    = false;
+        this.depthMode = DepthMode.Always;
+        this.blendMode = BlendMode.Normal;
 
-        Core.SetCullFace(true);
-        Core.SetDepthFunc(gl.LESS);
-        return shader;
     }
-    UnSet()
+    Set(shader)
+    {
+
+         Core.SetCullFace(this.cullFaces);
+         Core.SetCullFaceMode(this.cullMode);
+        // Core.SetDepthFunc(this.depthMode);
+         Core.SetDepthTest(this.depth);
+         Core.SetBlend(this.blend);
+
+         if (this.blend)
+         {
+             Core.SetBlendMode(this.blendMode);
+         }
+        
+
+       
+    }
+    UnSet(shader)
     {
         
     }
 }
 
+
+
+
 class TextureMaterial extends Material
 {
     constructor(texture=null)
     {
-        super();
+        super("texture");
         this.texture = texture;
-        this.shaderName = "texture";
         this.attributes = [POSITION,TEXTURE0,COLOR];
     }
     SetTexture(texture)
@@ -93,13 +110,20 @@ class TextureMaterial extends Material
         this.texture = texture;
         return this;
     }
-    Set()
+    Set(shader)
     {
-         let s = super.Set();
-         if (this.texture !== null && this.texture !== undefined)
-         Core.SetTexture(this.texture);
-         s.SetInteger("uTexture0", 0);
-         return s;
+         super.Set(shader);
+         if (shader.ContainsUniform("uTexture0"))
+         {
+             shader.SetInteger("uTexture0", 0);
+            if (this.texture !== null && this.texture !== undefined)
+            {
+                    Core.SetTexture(this.texture,0);
+            }
+        }
+       
+
+     
     }
 }
 
@@ -107,80 +131,69 @@ class SkyBoxMaterial extends Material
 {
     constructor()
     {
-        super(null);
-       
-        this.shaderName = "skybox";
+        super("skybox");
         this.attributes = [POSITION];
+        this.cullFaces = false;
+        this.depthMode = DepthMode.LEQUAL;
     }
     SetTexture(texture)
     {
         this.texture = texture;
         return this;
     }
-    Set()
+    Set(shader)
     {
 
-        let shader = super.Set();
+        super.Set(shader);
       
         shader.SetInteger("cubeTexture", 0);
-        Core.SetCullFace(false);
-        Core.SetDepthFunc(gl.LEQUAL);
-        if (this.texture !== null && this.texture !== undefined)
+         if (this.texture !== null && this.texture !== undefined)
         {
             gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.texture.id);
         }
         return shader;
     }
-    UnSet()
+    UnSet(shader)
     {
         gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
     }
 }
 
-class AmbientMaterial extends TextureMaterial
+
+
+class LightMaterial extends TextureMaterial
 {
-    constructor(texture)
+    constructor(texture=null)
     {
-        super(texture);
-        this.texture = texture;
-        this.shaderName = "ambient";
+        super("light",texture);
+        
         this.attributes = [POSITION,TEXTURE0,NORMAL];
  
-    }
  
-    Set()
-    {
-        let shader = super.Set();
-     
-        shader.SetFloat("light.intensity", Core.light.intensity);
-        shader.SetUniform3f("light.color", Core.light.color.r,Core.light.color.g,Core.light.color.b);
-        shader.SetUniform3f("light.ambient", Core.light.ambient.r,Core.light.ambient.g,Core.light.ambient.b);
-        shader.SetUniform3f("light.position",  Core.light.position.x, Core.light.position.y, Core.light.position.z);
 
-  
-
-        return shader;
     }
-}
-
-class DiffuseMaterial extends Material
-{
-    constructor()
+    Set(shader)
     {
-        super();
-        this.shaderName = "DIFFUSE";
-        this.attributes = [POSITION,TEXTURE0,NORMAL];
-        this.ambient = new Color(1.0, 0.5, 0.31);
-        this.diffuse = new Color(1.0, 0.5, 0.31);
-        this.specular = new Color(0.5, 0.5, 0.5);
-        this.shininess = 32;
+        super.Set(shader);
+
+      
+
+      
+        const light = Core.GetDirectionalLight();
+        const position = Core.GetCameraPosition();
+        shader.SetUniform3f("light.direction", light.direction.x, light.direction.y, light.direction.z);
+        shader.SetUniform3f("light.color", light.color.r, light.color.g, light.color.b);
+        shader.SetFloat("light.ambientIntensity", light.ambientIntensity);
+        shader.SetFloat("light.diffuseIntensity", light.diffuseIntensity);
+
+        shader.SetFloat("specularIntensity", light.specularIntensity);
+        shader.SetFloat("shininess", light.shininess);
+
+        shader.SetUniform3f("cameraPosition", position.x, position.y, position.z);
+
     }
-    Set()
-    {
-        super.Set();
-        let shader = Core.GetShader(this.shaderName);
-        Core.SetShader(shader);
-    }
+
+
 }
 
 class InstanceMaterial extends TextureMaterial
@@ -214,6 +227,7 @@ class Surface
         this.material=0;
         this.no_verts = 0;
         this.vertexIndex = 0;
+        this.box = new BoundingBox();
     
         this.vao = 0;
         if (attributes.length === 0)
@@ -428,6 +442,54 @@ class Surface
         }
         
     }
+
+    MakePlanarMapping(resolution)
+    {
+
+        if ((this.vertices.length === 0) ||
+           (this.vertices.length === 0)  ||
+           (this.texcoord0.length === 0) ||
+           (this.indices.length === 0)) return;
+
+        for (let i=0;i<this.indices.length;i+=3)
+        {
+            const a = this.indices[i];
+            const b = this.indices[i+1];
+            const c = this.indices[i+2];
+
+            const v0 = this.GetPosition(a);
+            const v1 = this.GetPosition(b);
+            const v2 = this.GetPosition(c);
+
+            let plane = Plane3D.FromPoints(v0,v1,v2);
+
+            plane.normal.x = Math.abs(plane.normal.x);
+            plane.normal.y = Math.abs(plane.normal.y);
+            plane.normal.z = Math.abs(plane.normal.z);
+
+            if (plane.normal.x > plane.normal.y && plane.normal.x > plane.normal.z)
+            {
+                this.VertexTexCoords(a, v0.y* resolution, v0.z* resolution);
+                this.VertexTexCoords(b, v1.y* resolution, v1.z* resolution);
+                this.VertexTexCoords(c, v2.y* resolution, v2.z* resolution);
+            } else 
+            if (plane.normal.y > plane.normal.x && plane.normal.y > plane.normal.z)
+            {
+                this.VertexTexCoords(a, v0.x* resolution, v0.z* resolution);
+                this.VertexTexCoords(b, v1.x* resolution, v1.z* resolution);
+                this.VertexTexCoords(c, v2.x* resolution, v2.z* resolution);
+            } else
+            {
+                this.VertexTexCoords(a, v0.x* resolution, v0.y* resolution);
+                this.VertexTexCoords(b, v1.x* resolution, v1.y* resolution);
+                this.VertexTexCoords(c, v2.x* resolution, v2.y* resolution);
+            }
+
+        }
+
+
+    }
+
     Render()
     {
         if (this.indices.length === 0) return;
@@ -447,6 +509,7 @@ class Surface
         this.vertices.push(y);
         this.vertices.push(z);
         this.flags |= VBOVERTEX;
+        this.box.addPoint(x,y,z);
 
         if (this.data & NORMAL)
         {
@@ -1158,6 +1221,26 @@ class Surface
 
     }
 
+    CalculateBoudingBox()
+    {
+        let min = new Vector3(999999,999999,999999);
+        let max = new Vector3(-999999,-999999,-999999);
+        for (let i = 0; i < this.vertices.length; i+=3)
+        {
+            let x = this.vertices[i];
+            let y = this.vertices[i+1];
+            let z = this.vertices[i+2];
+            if (x<min.x) min.x = x;
+            if (y<min.y) min.y = y;
+            if (z<min.z) min.z = z;
+            if (x>max.x) max.x = x;
+            if (y>max.y) max.y = y;
+            if (z>max.z) max.z = z;
+        }
+        this.box.min = min;
+        this.box.max = max;
+    }
+
 }
 
 
@@ -1167,6 +1250,7 @@ class Mesh
     {
         this.surfaces = [];
         this.materials = [];
+        this.box = new BoundingBox();
     }
     AddSurface(surface)
     {
@@ -1177,19 +1261,46 @@ class Mesh
         if (this.ContainsMaterial(material)) return;
         this.materials.push(material);
     }
-    Render()
+    CalculateBoudingBox()
     {
         for (let i = 0; i < this.surfaces.length; i++)
         {
-            let material = this.materials[this.surfaces[i].materialIndex];
-            material.Set();
-            this.surfaces[i].Render();
-            material.UnSet();
+            this.surfaces[i].CalculateBoudingBox();
+            mesh.box.addBox(surf.box);
         }
     }
+
+    Render()
+    {
+        Core.UseShader();
+        for (let i = 0; i < this.surfaces.length; i++)
+        {
+            let material = this.materials[this.surfaces[i].materialIndex];
+            Core.UseMaterial(material);
+            this.surfaces[i].Render();
+           
+        }
+    }
+
+    Draw()
+    {
+    
+        for (let i = 0; i < this.surfaces.length; i++)
+        {
+            this.surfaces[i].Render();
+        }
+    }
+
     GetMaterial(index)
     {
         return this.materials[index];
+    }
+    MakePlanarMapping(resolution)
+    {
+        for (let i = 0; i < this.surfaces.length; i++)
+        {
+            this.surfaces[i].MakePlanarMapping(resolution);
+        }
     }
     CalculateNormals(smoth=false)
     {
@@ -1226,21 +1337,31 @@ class Mesh
 
            surf.AddVertex(0, 0, 0, 0.0, 1.0);
            surf.AddVertex(1, 0, 0, 1.0, 1.0);
-        
+
+       
            surf.AddVertex(1, 1, 0, 1.0, 0.0);
            surf.AddVertex(0, 1, 0, 0.0, 0.0);
-        
+
+         
+
            surf.AddVertex(1, 0, 1, 0.0, 1.0);
            surf.AddVertex(1, 1, 1, 0.0, 0.0);
-        
+
+   
+
            surf.AddVertex(0, 1, 1, 1.0, 0.0);
            surf.AddVertex(0, 0, 1, 1.0, 1.0);
+
+ 
         
            surf.AddVertex(0, 1, 1, 0.0, 1.0);
            surf.AddVertex(0, 1, 0, 1.0, 1.0);
+
+   
         
            surf.AddVertex(1, 0, 1, 1.0, 0.0);
            surf.AddVertex(1, 0, 0, 0.0, 0.0);
+
          
            let indices = [ 0,2,1,   0,3,2,   
             1,5,4,   1,2,5,   
@@ -1258,12 +1379,16 @@ class Mesh
                 v.x -= 0.5;
                 v.y -= 0.5;
                 v.z -= 0.5;
+              
+            
+
                 surf.VertexPosition(i, v.x * size, v.y * size, v.z * size);
                 
             }
 
 
-
+            mesh.CalculateNormals(true);
+            mesh.box.addBox(surf.box);
             surf.Update();
 
             return mesh;
@@ -1302,6 +1427,7 @@ class Mesh
             v.x -= center.x * 0.5;
             v.z -= center.z * 0.5;
             surf.VertexPosition(i, v.x, v.y, v.z);
+            surf.VertexNormal(i, 0, 1, 0);
             
         }
 
@@ -1314,7 +1440,9 @@ class Mesh
                 surf.AddTriangle(index, index + slices + 2, index + 1);
             }
         }
-      
+        mesh.CalculateNormals(true);
+        mesh.box.addBox(surf.box);
+         
         surf.Update();
         return mesh;
 
@@ -1351,7 +1479,8 @@ class Mesh
                 surf.AddTriangle(index, index + 1, index + slices + 2);           
             }
         }
-
+        mesh.CalculateNormals(true);
+        mesh.box.addBox(surf.box);
         surf.Update();
         return mesh;
 
@@ -1422,7 +1551,8 @@ class Mesh
             surf.AddTriangle(bottomSurfaceStartIndex, bottomSurfaceStartIndex + i + 1, bottomSurfaceStartIndex + (i + 1) % slices + 1);
 
         }
-
+        mesh.CalculateNormals(true);
+        mesh.box.addBox(surf.box);
         surf.Update();
     
 
@@ -1483,7 +1613,8 @@ class Mesh
             baseStartIndex + i + 1,
             baseStartIndex + (i + 1) % slices + 1);
         }
-
+        mesh.CalculateNormals(true);
+        mesh.box.addBox(surf.box);
         surf.Update();
         return mesh;
     
@@ -1528,9 +1659,184 @@ class Mesh
                 index + 1);
             }
         }
+        mesh.CalculateNormals(true);
+        mesh.box.addBox(surf.box);
         surf.Update();
         return mesh;
     
+
+    }
+    LoadOBJ(data, material)
+    {
+       this.AddMaterial(material);
+        let surf = this.CreateSurface(0, false);
+        let lines = data.split("\n");
+        let vertices = [];
+        let normals = [];
+        let texcoord = [];
+
+        let generateNormals =true;
+        let generateTexcoord = true;
+      
+
+        const addTriangle = (vertices,normals,texcoord,a,b,c) =>
+        {
+                    const data_a = a.split("/");
+                    const data_b = b.split("/");
+                    const data_c = c.split("/");
+
+                    let vertID_a = parseInt(data_a[0]) - 1;
+                    let vertID_b = parseInt(data_b[0]) - 1;
+                    let vertID_c = parseInt(data_c[0]) - 1;
+
+                    let hasNormals = normals.length > 0;
+                    let hasTexcoord = texcoord.length > 0;
+
+                    if (vertID_a < 0) vertID_a+=vertices.length;
+                    if (vertID_b < 0) vertID_b+=vertices.length;
+                    if (vertID_c < 0) vertID_c+=vertices.length;
+                    
+                    let v_a = vertices[vertID_a];
+                    let v_b = vertices[vertID_b];
+                    let v_c = vertices[vertID_c];
+
+                    let n_a = new Vector3(0,0,0);
+                    let n_b = new Vector3(0,0,0);
+                    let n_c = new Vector3(0,0,0);
+
+                    let uv_a = new Vector2(0,0);
+                    let uv_b = new Vector2(0,0);
+                    let uv_c = new Vector2(0,0);
+
+                    if (hasNormals)
+                    {
+                        let normID_a = parseInt(data_a[2]) - 1;
+                        let normID_b = parseInt(data_b[2]) - 1;
+                        let normID_c = parseInt(data_c[2]) - 1;
+                        if (normID_a < 0) normID_a+=normals.length;
+                        if (normID_b < 0) normID_b+=normals.length;
+                        if (normID_c < 0) normID_c+=normals.length;
+                        n_a = normals[normID_a];
+                        n_b = normals[normID_b];
+                        n_c = normals[normID_c];
+                        generateNormals = false;
+                    }
+
+                    if (hasTexcoord)
+                    {
+                        let texID_a = parseInt(data_a[1]) - 1;
+                        let texID_b = parseInt(data_b[1]) - 1;
+                        let texID_c = parseInt(data_c[1]) - 1;
+                        if (texID_a < 0) texID_a+=texcoord.length;
+                        if (texID_b < 0) texID_b+=texcoord.length;
+                        if (texID_c < 0) texID_c+=texcoord.length;
+                        uv_a = texcoord[texID_a];
+                        uv_b = texcoord[texID_b];
+                        uv_c = texcoord[texID_c];
+
+                        generateTexcoord = false;
+                    }
+                    if (!v_a ) 
+                    {
+                        console.warn("Invalid vertex a index",data_a);
+                        console.log(v_a);
+                       return;
+
+                    }
+
+                    if (!v_b )
+
+                    {
+                        console.warn("Invalid vertex b index",data_b);
+                        console.log(v_b);
+                        return;
+                    }
+
+                    if (!v_c )
+                    {
+                        console.warn("Invalid vertex c index",data_c);
+                        console.log(v_c);
+                        return;
+                    }
+
+                    let index_a = surf.AddVertex(v_a.x, v_a.y, v_a.z, uv_a.x, uv_a.y);
+                    let index_b = surf.AddVertex(v_b.x, v_b.y, v_b.z, uv_b.x, uv_b.y);
+                    let index_c = surf.AddVertex(v_c.x, v_c.y, v_c.z, uv_c.x, uv_c.y);
+
+                    if (hasNormals)
+                    {
+                        surf.VertexNormal(index_a, n_a.x, n_a.y, n_a.z);
+                        surf.VertexNormal(index_b, n_b.x, n_b.y, n_b.z);
+                        surf.VertexNormal(index_c, n_c.x, n_c.y, n_c.z);
+                    }
+
+                    surf.AddTriangle(index_a, index_b, index_c);
+
+
+
+        }
+
+        for (let i = 0; i < lines.length; i++)
+        {
+            let line = lines[i].trim();
+          //  let tokens = line.split(" ");
+            let tokens = line.split(/\s+/);
+            if (tokens[0] === "v")
+            {
+                let v = new Vector3(parseFloat(tokens[1]), parseFloat(tokens[2]), parseFloat(tokens[3]));
+                vertices.push(v);
+      
+            } else 
+            if (tokens[0] === "vn")
+            {
+                let n = new Vector3(parseFloat(tokens[1]), parseFloat(tokens[2]), parseFloat(tokens[3]));
+                normals.push(n);
+            
+            } else 
+            if (tokens[0] === "vt")
+            {
+                let uv = new Vector2(parseFloat(tokens[1]), parseFloat(tokens[2]));
+                texcoord.push(uv);
+            } else 
+            if (tokens[0] === "f")
+            {
+
+               
+                if (tokens.length===4) //triangulo
+                {   
+                   
+
+                    if (tokens[1] === "") continue;
+                    if (tokens[2] === "") continue;
+                    if (tokens[3] === "") continue;
+                    
+                    addTriangle(vertices,normals,texcoord,tokens[1],tokens[2],tokens[3]);
+
+                } else 
+                if (tokens.length===5) //quads
+                {
+                 
+                    if (tokens[1] === "") continue;
+                    if (tokens[2] === "") continue;
+                    if (tokens[3] === "") continue;
+                    if (tokens[4] === "") continue;
+
+                    addTriangle(vertices,normals,texcoord,tokens[1],tokens[2],tokens[3]);
+                    addTriangle(vertices,normals,texcoord,tokens[1],tokens[3],tokens[4]);
+                }
+
+              
+            }
+        }
+
+
+        if (generateNormals)   surf.CalculateNormals(true);
+        if (generateTexcoord)  surf.MakePlanarMapping(0.5);
+    
+
+        this.box.addBox(surf.box);
+        surf.Update();
+        return this;
 
     }
 }
@@ -1552,6 +1858,8 @@ class SkyBox
     
     Render()
     {
+        let shader = Core.GetShader("skybox");
+        Core.SetShader(shader);
         Core.SetCullFace(false);
         Core.SetDepthFunc(gl.LEQUAL);
         this.mesh.Render();

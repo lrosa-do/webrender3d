@@ -640,6 +640,13 @@ class Vector3
 		this.z = z;
 		return this;
 	}
+	copy(v)	
+	{
+		this.x = v.x;
+		this.y = v.y;
+		this.z = v.z;
+		return this;
+	}
 
 	get()
 	{
@@ -752,7 +759,74 @@ class Vector3
 		return Math.sqrt((v2.x - v1.x) * (v2.x - v1.x) + (v2.y - v1.y) * (v2.y - v1.y) + (v2.z - v1.z) * (v2.z - v1.z));
 	}
 
+	static Invert(v)
+	{
+		return new Vector3(-v.x, -v.y, -v.z);
+	}
+
+	static Lerp(v1, v2, t)
+	{
+		return new Vector3(v1.x + (v2.x - v1.x) * t, v1.y + (v2.y - v1.y) * t, v1.z + (v2.z - v1.z) * t);
+	}
+
 }	
+
+class Plane3D 
+{
+	constructor()
+	{
+		this.normal = new Vector3(0, 0, 1);
+		this.d = 0;
+	}
+
+	set(normal, d)
+	{
+		this.normal.set(normal.x, normal.y, normal.z);
+		this.d = d;
+		this.normalize();
+		return this;
+	}
+
+	fromPoints(p1, p2, p3)
+	{
+		let v1 = Vector3.Sub(p2, p1);
+		let v2 = Vector3.Sub(p3, p1);
+		this.normal = Vector3.Cross(v1, v2).normalize();
+		this.d = -Vector3.Dot(this.normal, p1);
+		return this;
+	}
+
+	normalize()
+	{
+		let mag = this.normal.magnitude();
+		if (mag > 0)
+		{
+			this.normal.div(mag);
+			this.d /= mag;
+		}
+		return this;
+	}
+
+	distanceToPoint(point)
+	{
+		return this.normal.x * point.x + this.normal.y * point.y + this.normal.z * point.z + this.d;
+	}
+
+	static DistanceToPoint(plane, point)
+	{
+		return plane.normal.x * point.x + plane.normal.y * point.y + plane.normal.z * point.z + plane.d;
+	}
+
+	static FromPoints (p1, p2, p3)
+	{
+		let v1 = Vector3.Sub(p2, p1);
+		let v2 = Vector3.Sub(p3, p1);
+		let normal = Vector3.Cross(v1, v2).normalize();
+		return new Plane3D(normal, -Vector3.Dot(normal, p1));
+	}
+
+}
+
 
 class Matrix2D
 {
@@ -1265,7 +1339,14 @@ class Matrix4
 	
 		return v;
 	}
-		
+	getPostionRef(v)
+	 {
+		let m = this.m;
+		v.x = m[12];
+		v.y = m[13];
+		v.z = m[14];
+		return v;
+	 }
 
 	static Identity()
 	{
@@ -1425,6 +1506,30 @@ class Matrix4
 		return m;
 	}
 
+	static TransformNormal(matrix, v)
+	{
+		let x = v.x;
+		let y = v.y;
+		let z = v.z;
+		let m = matrix.m;
+		v.x =  m[0] * x + m[4] * y + m[8]  * z;
+		v.y =  m[1] * x + m[5] * y + m[9]  * z;
+		v.z =  m[2] * x + m[6] * y + m[10] * z;
+		return v;
+	}
+
+	static TransformPoint(matrix, v)
+	{
+		let x = v.x;
+		let y = v.y;
+		let z = v.z;
+		let m = matrix.m;
+		v.x =  m[0] * x + m[4] * y + m[8]  * z + m[12];
+		v.y =  m[1] * x + m[5] * y + m[9]  * z + m[13];
+		v.z =  m[2] * x + m[6] * y + m[10] * z + m[14];
+		return v;
+	}
+
 
 	/*
     // The camera in world-space is set by
@@ -1461,6 +1566,301 @@ class Matrix4
 
 }
 
+class Matrix3
+{
+	constructor()
+	{
+		this.m = new Float32Array(9);
+		this.identity();
+	}
+
+	set(m00,m01,m02,
+		m10,m11,m12,
+		m20,m21,m22)
+	{
+		this.m[0] = m00; this.m[3] = m01; this.m[6] = m02;
+		this.m[1] = m10; this.m[4] = m11; this.m[7] = m12;
+		this.m[2] = m20; this.m[5] = m21; this.m[8] = m22;
+	}
+
+	identity()
+	{
+		this.m[0] = 1; this.m[3] = 0; this.m[6] = 0;
+		this.m[1] = 0; this.m[4] = 1; this.m[7] = 0;
+		this.m[2] = 0; this.m[5] = 0; this.m[8] = 1;
+	}
+
+	clone ()
+	{
+		let m = new Matrix3();
+		m.m[0] = this.m[0];
+		m.m[1] = this.m[1];
+		m.m[2] = this.m[2];
+		m.m[3] = this.m[3];
+		m.m[4] = this.m[4];
+		m.m[5] = this.m[5];
+		m.m[6] = this.m[6];
+		m.m[7] = this.m[7];
+		m.m[8] = this.m[8];
+		return m;
+	}
+
+	copy(matrix)
+	{
+		this.m[0] = matrix.m[0];
+		this.m[1] = matrix.m[1];
+		this.m[2] = matrix.m[2];
+		this.m[3] = matrix.m[3];
+		this.m[4] = matrix.m[4];
+		this.m[5] = matrix.m[5];
+		this.m[6] = matrix.m[6];
+		this.m[7] = matrix.m[7];
+		this.m[8] = matrix.m[8];
+	}
+
+	scale(x,y)
+	{
+		this.identity();
+		this.m[0] = x;
+		this.m[4] = y;
+	}
+
+	rotate(angle)
+	{
+		let sinres = Math.sin(angle);
+		let cosres = Math.cos(angle);
+
+		this.m[0] = cosres;
+		this.m[1] = sinres;
+		this.m[3] = -sinres;
+		this.m[4] = cosres;
+	}
+
+	transformVector(v)
+	{
+		let x = v.x;
+		let y = v.y;
+		v.x =  this.m[0] * x + this.m[3] * y + this.m[6];
+		v.y =  this.m[1] * x + this.m[4] * y + this.m[7];
+		return v;
+	}
+
+	static Identity()
+	{
+		return new Matrix3();
+	}
+
+	static Multiply(left,right)
+	{
+		let result = new Matrix3();
+		result.m[0] = left.m[0]*right.m[0] + left.m[1]*right.m[3] + left.m[2]*right.m[6];
+		result.m[1] = left.m[0]*right.m[1] + left.m[1]*right.m[4] + left.m[2]*right.m[7];
+		result.m[2] = left.m[0]*right.m[2] + left.m[1]*right.m[5] + left.m[2]*right.m[8];
+		result.m[3] = left.m[3]*right.m[0] + left.m[4]*right.m[3] + left.m[5]*right.m[6];
+		result.m[4] = left.m[3]*right.m[1] + left.m[4]*right.m[4] + left.m[5]*right.m[7];
+		result.m[5] = left.m[3]*right.m[2] + left.m[4]*right.m[5] + left.m[5]*right.m[8];
+		result.m[6] = left.m[6]*right.m[0] + left.m[7]*right.m[3] + left.m[8]*right.m[6];
+		result.m[7] = left.m[6]*right.m[1] + left.m[7]*right.m[4] + left.m[8]*right.m[7];
+		result.m[8] = left.m[6]*right.m[2] + left.m[7]*right.m[5] + left.m[8]*right.m[8];
+		return result;
+			
+
+	}
+
+
+	
+
+
+
+}
+
+
+class Quaternion
+{
+
+	constructor()
+	{
+		this.x = 0;
+		this.y = 0;
+		this.z = 0;
+		this.w = 1;
+	}
+
+	set(x,y,z,w)
+	{
+		this.x = x;
+		this.y = y;
+		this.z = z;
+		this.w = w;
+	}
+
+	identity()
+	{
+		this.x = 0;
+		this.y = 0;
+		this.z = 0;
+		this.w = 1;
+	
+	}
+
+	clone()
+	{
+		let q = new Quaternion();
+		q.x = this.x;
+		q.y = this.y;
+		q.z = this.z;
+		q.w = this.w;
+		return q;
+	
+	}
+
+	copy(q)
+	{
+		this.x = q.x;
+		this.y = q.y;
+		this.z = q.z;
+		this.w = q.w;
+	}
+
+	multiply(q)
+	{
+		let x = this.x;
+		let y = this.y;
+		let z = this.z;
+		let w = this.w;
+		this.x = w*q.x + x*q.w + y*q.z - z*q.y;
+		this.y = w*q.y - x*q.z + y*q.w + z*q.x;
+		this.z = w*q.z + x*q.y - y*q.x + z*q.w;
+		this.w = w*q.w - x*q.x - y*q.y - z*q.z;
+	}
+
+	rotate(angle, x, y, z)
+	{
+		let halfAngle = angle * 0.5;
+		let s = Math.sin(halfAngle);
+		this.x = x * s;
+		this.y = y * s;
+		this.z = z * s;
+		this.w = Math.cos(halfAngle);
+	}
+
+	normalize()
+	{
+		let length = Math.sqrt(this.x*this.x + this.y*this.y + this.z*this.z + this.w*this.w);
+		if (length == 0) length = 1;
+		let ilength = 1.0 / length;
+		this.x *= ilength;
+		this.y *= ilength;
+		this.z *= ilength;
+		this.w *= ilength;
+	}
+
+	static Multiply(q1,q2)
+	{
+		let result = new Quaternion();
+		result.x = q1.w*q2.x + q1.x*q2.w + q1.y*q2.z - q1.z*q2.y;
+		result.y = q1.w*q2.y - q1.x*q2.z + q1.y*q2.w + q1.z*q2.x;
+		result.z = q1.w*q2.z + q1.x*q2.y - q1.y*q2.x + q1.z*q2.w;
+		result.w = q1.w*q2.w - q1.x*q2.x - q1.y*q2.y - q1.z*q2.z;
+		return result;
+	}
+
+	static Rotate(angle, x, y, z)
+	{
+		let q = new Quaternion();
+		let halfAngle = angle * 0.5;
+		let s = Math.sin(halfAngle);
+		q.x = x * s;
+		q.y = y * s;
+		q.z = z * s;
+		q.w = Math.cos(halfAngle);
+		return q;
+	}
+
+	static Normalize(q)
+	{
+		let result = new Quaternion();
+		let length = Math.sqrt(q.x*q.x + q.y*q.y + q.z*q.z + q.w*q.w);
+		if (length == 0) length = 1;
+		let ilength = 1.0 / length;
+		result.x = q.x * ilength;
+		result.y = q.y * ilength;
+		result.z = q.z * ilength;
+		result.w = q.w * ilength;
+		return result;
+	}
+
+	static GetMatrix4(q)
+	{
+		let x = q.x;
+		let y = q.y;
+		let z = q.z;
+		let w = q.w;
+		let x2 = x + x;
+		let y2 = y + y;
+		let z2 = z + z;
+		let xx = x * x2;
+		let xy = x * y2;
+		let xz = x * z2;
+		let yy = y * y2;
+		let yz = y * z2;
+		let zz = z * z2;
+		let wx = w * x2;
+		let wy = w * y2;
+		let wz = w * z2;
+		let m = new Matrix4();
+		m.m[0] = 1 - (yy + zz);
+		m.m[1] = xy - wz;
+		m.m[2] = xz + wy;
+		m.m[3] = 0;
+		m.m[4] = xy + wz;
+		m.m[5] = 1 - (xx + zz);
+		m.m[6] = yz - wx;
+		m.m[7] = 0;
+		m.m[8] = xz - wy;
+		m.m[9] = yz + wx;
+		m.m[10] = 1 - (xx + yy);
+		m.m[11] = 0;
+		m.m[12] = 0;
+		m.m[13] = 0;
+		m.m[14] = 0;
+		m.m[15] = 1;
+		return m;
+	}
+
+	static GetMatrix3(q)
+	{
+		let x = q.x;
+		let y = q.y;
+		let z = q.z;
+		let w = q.w;
+		let x2 = x + x;
+		let y2 = y + y;
+		let z2 = z + z;
+		let xx = x * x2;
+		let xy = x * y2;
+		let xz = x * z2;
+		let yy = y * y2;
+		let yz = y * z2;
+		let zz = z * z2;
+		let wx = w * x2;
+		let wy = w * y2;
+		let wz = w * z2;
+		let m = new Matrix3();
+		m.m[0] = 1 - (yy + zz);
+		m.m[1] = xy - wz;
+		m.m[2] = xz + wy;
+		m.m[3] = xy + wz;
+		m.m[4] = 1 - (xx + zz);
+		m.m[5] = yz - wx;
+		m.m[6] = xz - wy;
+		m.m[7] = yz + wx;
+		m.m[8] = 1 - (xx + yy);
+		return m;
+	}
+
+
+}
 
 
 class MatrixStack
@@ -1522,6 +1922,313 @@ class MatrixStack
 }
 
 
+
+class BoundingBox 
+{
+	constructor()
+	{
+		this.min = new Vector3(99999,99999,99999);
+		this.max = new Vector3(-99999,-99999,-99999);
+		this.corners = [];
+	
+	}
+
+	set(min,max)
+	{
+		this.min.copy(min);
+		this.max.copy(max);
+	
+	}
+	addPoint(x,y,z)
+	{
+		if(x<this.min.x) this.min.x = x;
+		if(y<this.min.y) this.min.y = y;
+		if(z<this.min.z) this.min.z = z;
+		if(x>this.max.x) this.max.x = x;
+		if(y>this.max.y) this.max.y = y;
+		if(z>this.max.z) this.max.z = z;
+	
+	}
+	addVector(v)
+	{
+		if(v.x<this.min.x) this.min.x = v.x;
+		if(v.y<this.min.y) this.min.y = v.y;
+		if(v.z<this.min.z) this.min.z = v.z;
+		if(v.x>this.max.x) this.max.x = v.x;
+		if(v.y>this.max.y) this.max.y = v.y;
+		if(v.z>this.max.z) this.max.z = v.z;
+	
+	}
+	reset(x,y,z)
+	{
+		this.min.set(x,y,z);
+		this.max.set(x,y,z);
+	}
+
+	addBox(box)
+	{
+		if(box.min.x<this.min.x) this.min.x = box.min.x;
+		if(box.min.y<this.min.y) this.min.y = box.min.y;
+		if(box.min.z<this.min.z) this.min.z = box.min.z;
+		if(box.max.x>this.max.x) this.max.x = box.max.x;
+		if(box.max.y>this.max.y) this.max.y = box.max.y;
+		if(box.max.z>this.max.z) this.max.z = box.max.z;
+	
+	}
+	
+	containsPoint(v)
+	{
+		return (v.x>=this.min.x && v.y>=this.min.y && v.z>=this.min.z && v.x<=this.max.x && v.y<=this.max.y && v.z<=this.max.z);
+	}
+
+	containsBox(box)
+	{
+		return (box.min.x>=this.min.x && box.min.y>=this.min.y && box.min.z>=this.min.z && box.max.x<=this.max.x && box.max.y<=this.max.y && box.max.z<=this.max.z);
+	}
+
+	getCenter()
+	{
+		return new Vector3((this.min.x+this.max.x)*0.5,(this.min.y+this.max.y)*0.5,(this.min.z+this.max.z)*0.5);
+	}
+
+	getHalfSize()
+	{
+		return new Vector3((this.max.x-this.min.x)*0.5,(this.max.y-this.min.y)*0.5,(this.max.z-this.min.z)*0.5);
+	}
+
+	getEdges()
+	{
+		let middle = this.getCenter();
+		let diag = new Vector3(this.max.x - middle.x, this.max.y - middle.y, this.max.z - middle.z);
+		let edges =[];
+
+		edges[0]= new Vector3(middle.x + diag.x, middle.y + diag.y, middle.z + diag.z);
+		edges[1]= new Vector3(middle.x + diag.x, middle.y - diag.y, middle.z + diag.z);
+		edges[2]= new Vector3(middle.x + diag.x, middle.y + diag.y, middle.z - diag.z);
+		edges[3]= new Vector3(middle.x + diag.x, middle.y - diag.y, middle.z - diag.z);
+		edges[4]= new Vector3(middle.x - diag.x, middle.y + diag.y, middle.z + diag.z);
+		edges[5]= new Vector3(middle.x - diag.x, middle.y - diag.y, middle.z + diag.z);
+		edges[6]= new Vector3(middle.x - diag.x, middle.y + diag.y, middle.z - diag.z);
+		edges[7]= new Vector3(middle.x - diag.x, middle.y - diag.y, middle.z - diag.z);
+
+		return edges;
+	}
+
+	transform(matrix)
+	{
+		let corners = [];
+		this.getEdges(corners);
+		this.reset(corners[0].x, corners[0].y, corners[0].z);
+		for (let i = 1; i < 8; i++) 
+		{
+			this.addPoint(matrix.transformPoint(corners[i]));
+		}
+	}
+
+	transform_ref(matrix,box)
+	{
+		let corners = [];
+		this.getEdges(corners);
+		box.reset(corners[0].x, corners[0].y, corners[0].z);
+		for (let i = 1; i < 8; i++) 
+		{
+			box.addPoint(matrix.transformPoint(corners[i]));
+		}
+	}
+
+
+
+
+
+}
+
+const FrustumSide = {
+	RIGHT : 0,
+	LEFT : 1,
+	BOTTOM : 2,
+	TOP : 3,
+	BACK : 4,
+	FRONT : 5
+};
+
+const PlaneData = {
+	A : 0,
+	B : 1,
+	C : 2,
+	D : 3
+};
+
+class Frustum	
+{
+	constructor()
+	{
+		this.planes =new Array(6);
+		for(let i=0; i<6; i++)
+		{
+			this.planes[i] = new Float32Array(4);
+
+		}
+		this.clip= [];
+	}
+	update(viewMatrix,projMatrix)
+	{
+		const proj = projMatrix.m;
+		const view = viewMatrix.m;
+
+		this.clip[ 0] = view[ 0] * proj[ 0] + view[ 1] * proj[ 4] + view[ 2] * proj[ 8] + view[ 3] * proj[12];
+		this.clip[ 1] = view[ 0] * proj[ 1] + view[ 1] * proj[ 5] + view[ 2] * proj[ 9] + view[ 3] * proj[13];
+		this.clip[ 2] = view[ 0] * proj[ 2] + view[ 1] * proj[ 6] + view[ 2] * proj[10] + view[ 3] * proj[14];
+		this.clip[ 3] = view[ 0] * proj[ 3] + view[ 1] * proj[ 7] + view[ 2] * proj[11] + view[ 3] * proj[15];
+
+		this.clip[ 4] = view[ 4] * proj[ 0] + view[ 5] * proj[ 4] + view[ 6] * proj[ 8] + view[ 7] * proj[12];
+		this.clip[ 5] = view[ 4] * proj[ 1] + view[ 5] * proj[ 5] + view[ 6] * proj[ 9] + view[ 7] * proj[13];
+		this.clip[ 6] = view[ 4] * proj[ 2] + view[ 5] * proj[ 6] + view[ 6] * proj[10] + view[ 7] * proj[14];
+		this.clip[ 7] = view[ 4] * proj[ 3] + view[ 5] * proj[ 7] + view[ 6] * proj[11] + view[ 7] * proj[15];
+
+		this.clip[ 8] = view[ 8] * proj[ 0] + view[ 9] * proj[ 4] + view[10] * proj[ 8] + view[11] * proj[12];
+		this.clip[ 9] = view[ 8] * proj[ 1] + view[ 9] * proj[ 5] + view[10] * proj[ 9] + view[11] * proj[13];
+		this.clip[10] = view[ 8] * proj[ 2] + view[ 9] * proj[ 6] + view[10] * proj[10] + view[11] * proj[14];
+		this.clip[11] = view[ 8] * proj[ 3] + view[ 9] * proj[ 7] + view[10] * proj[11] + view[11] * proj[15];
+
+		this.clip[12] = view[12] * proj[ 0] + view[13] * proj[ 4] + view[14] * proj[ 8] + view[15] * proj[12];
+		this.clip[13] = view[12] * proj[ 1] + view[13] * proj[ 5] + view[14] * proj[ 9] + view[15] * proj[13];
+		this.clip[14] = view[12] * proj[ 2] + view[13] * proj[ 6] + view[14] * proj[10] + view[15] * proj[14];
+		this.clip[15] = view[12] * proj[ 3] + view[13] * proj[ 7] + view[14] * proj[11] + view[15] * proj[15];
+
+		// right
+		this.planes[FrustumSide.RIGHT][PlaneData.A] = this.clip[ 3] - this.clip[ 0];
+		this.planes[FrustumSide.RIGHT][PlaneData.B] = this.clip[ 7] - this.clip[ 4];
+		this.planes[FrustumSide.RIGHT][PlaneData.C] = this.clip[11] - this.clip[ 8];
+		this.planes[FrustumSide.RIGHT][PlaneData.D] = this.clip[15] - this.clip[12];
+		this.NormalizePlane(FrustumSide.RIGHT);
+
+		// left
+		this.planes[FrustumSide.LEFT][PlaneData.A] = this.clip[ 3] + this.clip[ 0];
+		this.planes[FrustumSide.LEFT][PlaneData.B] = this.clip[ 7] + this.clip[ 4];
+		this.planes[FrustumSide.LEFT][PlaneData.C] = this.clip[11] + this.clip[ 8];
+		this.planes[FrustumSide.LEFT][PlaneData.D] = this.clip[15] + this.clip[12];
+		this.NormalizePlane(FrustumSide.LEFT);
+
+		// bottom
+		this.planes[FrustumSide.BOTTOM][PlaneData.A] = this.clip[ 3] + this.clip[ 1];
+		this.planes[FrustumSide.BOTTOM][PlaneData.B] = this.clip[ 7] + this.clip[ 5];
+		this.planes[FrustumSide.BOTTOM][PlaneData.C] = this.clip[11] + this.clip[ 9];
+		this.planes[FrustumSide.BOTTOM][PlaneData.D] = this.clip[15] + this.clip[13];
+		this.NormalizePlane(FrustumSide.BOTTOM);
+
+		// top
+		this.planes[FrustumSide.TOP][PlaneData.A] = this.clip[ 3] - this.clip[ 1];
+		this.planes[FrustumSide.TOP][PlaneData.B] = this.clip[ 7] - this.clip[ 5];
+		this.planes[FrustumSide.TOP][PlaneData.C] = this.clip[11] - this.clip[ 9];
+		this.planes[FrustumSide.TOP][PlaneData.D] = this.clip[15] - this.clip[13];
+		this.NormalizePlane(FrustumSide.TOP);
+
+		// back
+		this.planes[FrustumSide.BACK][PlaneData.A] = this.clip[ 3] - this.clip[ 2];
+		this.planes[FrustumSide.BACK][PlaneData.B] = this.clip[ 7] - this.clip[ 6];
+		this.planes[FrustumSide.BACK][PlaneData.C] = this.clip[11] - this.clip[10];
+		this.planes[FrustumSide.BACK][PlaneData.D] = this.clip[15] - this.clip[14];
+		this.NormalizePlane(FrustumSide.BACK);
+
+		// front
+		this.planes[FrustumSide.FRONT][PlaneData.A] = this.clip[ 3] + this.clip[ 2];
+		this.planes[FrustumSide.FRONT][PlaneData.B] = this.clip[ 7] + this.clip[ 6];	
+		this.planes[FrustumSide.FRONT][PlaneData.C] = this.clip[11] + this.clip[10];
+		this.planes[FrustumSide.FRONT][PlaneData.D] = this.clip[15] + this.clip[14];
+		this.NormalizePlane(FrustumSide.FRONT);
+
+
+
+
+
+		
+
+
+	}
+
+	NormalizePlane(side)
+	{
+		let t = Math.sqrt(this.planes[side][PlaneData.A] * this.planes[side][PlaneData.A] + 
+			this.planes[side][PlaneData.B] * this.planes[side][PlaneData.B] + 
+			this.planes[side][PlaneData.C] * this.planes[side][PlaneData.C]);
+		this.planes[side][PlaneData.A] /= t;
+		this.planes[side][PlaneData.B] /= t;
+		this.planes[side][PlaneData.C] /= t;
+		this.planes[side][PlaneData.D] /= t;
+	
+	}
+
+	containsPoint(v)
+	{
+		for(let i=0; i<6; i++)
+		{
+			if(this.planes[i][PlaneData.A] * v.x + this.planes[i][PlaneData.B] * v.y + this.planes[i][PlaneData.C] * v.z + this.planes[i][PlaneData.D] <= 0)
+			{
+				return false;
+			}
+		}
+		
+		return true;
+	}
+
+	containsCube(x,y,z,size)
+	{
+		for(let i=0; i<6; i++)
+		{
+			if (this.planes[i][PlaneData.A] * (x - size) + this.planes[i][PlaneData.B] * (y - size) + this.planes[i][PlaneData.C] * (z - size) + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * (x + size) + this.planes[i][PlaneData.B] * (y - size) + this.planes[i][PlaneData.C] * (z - size) + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * (x - size) + this.planes[i][PlaneData.B] * (y + size) + this.planes[i][PlaneData.C] * (z - size) + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * (x + size) + this.planes[i][PlaneData.B] * (y + size) + this.planes[i][PlaneData.C] * (z - size) + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * (x - size) + this.planes[i][PlaneData.B] * (y - size) + this.planes[i][PlaneData.C] * (z + size) + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * (x + size) + this.planes[i][PlaneData.B] * (y - size) + this.planes[i][PlaneData.C] * (z + size) + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * (x - size) + this.planes[i][PlaneData.B] * (y + size) + this.planes[i][PlaneData.C] * (z + size) + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * (x + size) + this.planes[i][PlaneData.B] * (y + size) + this.planes[i][PlaneData.C] * (z + size) + this.planes[i][PlaneData.D] > 0) continue;
+
+			return false;
+		}
+
+		
+		return true;
+	}
+	containsMinMax(min,max)
+	{
+		for(let i=0; i<6; i++)
+		{
+
+			if (this.planes[i][PlaneData.A] * min.x + this.planes[i][PlaneData.B] * min.y + this.planes[i][PlaneData.C] * min.z + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * max.x + this.planes[i][PlaneData.B] * min.y + this.planes[i][PlaneData.C] * min.z + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * min.x + this.planes[i][PlaneData.B] * max.y + this.planes[i][PlaneData.C] * min.z + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * max.x + this.planes[i][PlaneData.B] * max.y + this.planes[i][PlaneData.C] * min.z + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * min.x + this.planes[i][PlaneData.B] * min.y + this.planes[i][PlaneData.C] * max.z + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * max.x + this.planes[i][PlaneData.B] * min.y + this.planes[i][PlaneData.C] * max.z + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * min.x + this.planes[i][PlaneData.B] * max.y + this.planes[i][PlaneData.C] * max.z + this.planes[i][PlaneData.D] > 0) continue;
+			if (this.planes[i][PlaneData.A] * max.x + this.planes[i][PlaneData.B] * max.y + this.planes[i][PlaneData.C] * max.z + this.planes[i][PlaneData.D] > 0) continue;
+
+			return false;
+
+
+		}
+
+		
+		
+		return true;
+	}
+	containsBox(box)
+	{
+		return this.containsMinMax(box.min,box.max);
+	}
+
+	containsSphere(x,y,z,radius)
+	{
+		for(let i=0; i<6; i++)
+		{
+			if (this.planes[i][PlaneData.A] * x + this.planes[i][PlaneData.B] * y + this.planes[i][PlaneData.C] * z + this.planes[i][PlaneData.D] <= -radius) return false;
+		}
+		
+		return true;
+	}
+
+}
 
 function isPointInTriangle(px, py, ax, ay, bx, by, cx, cy)
 {
@@ -1763,3 +2470,187 @@ class Polygon
 		return false;
 	}
 }
+
+
+
+function getPowIn(t,pow) 
+{
+		return Math.pow(t,pow);
+}
+
+function getPowOut(t,pow) 
+{
+	return 1-Math.pow(1-t,pow);
+}
+
+function getPowInOut(t,pow) 
+{
+	if ((t*=2)<1) return 0.5*Math.pow(t,pow);
+		return 1-0.5*Math.abs(Math.pow(2-t,pow));
+}
+
+
+function getBackInOut(t,amount) 
+{
+	amount*=1.525;
+	if ((t*=2)<1) return 0.5*(t*t*((amount+1)*t-amount));
+	return 0.5*((t-=2)*t*((amount+1)*t+amount)+2);
+}
+
+function EaseBackInOut(t)
+{
+	return getBackInOut(t,1.7);
+}
+
+
+function getElasticIn(t,amplitude,period) 
+{
+	let pi2 = Math.PI*2;
+	if (t==0 || t==1) return t;
+	let s = period/pi2*Math.asin(1/amplitude);
+	return -(amplitude*Math.pow(2,10*(t-=1))*Math.sin((t-s)*pi2/period));
+	
+};
+
+
+function getElasticOut(t,amplitude,period) 
+{
+	let pi2 = Math.PI*2;
+	if (t==0 || t==1) return t;
+	let s = period/pi2 * Math.asin(1/amplitude);
+	return (amplitude*Math.pow(2,-10*t)*Math.sin((t-s)*pi2/period )+1);
+
+};
+
+function getElasticInOut(t,amplitude,period) 
+{
+	let pi2 = Math.PI*2;
+	let s = period/pi2 * Math.asin(1/amplitude);
+	if ((t*=2)<1) return -0.5*(amplitude*Math.pow(2,10*(t-=1))*Math.sin( (t-s)*pi2/period ));
+	return amplitude*Math.pow(2,-10*(t-=1))*Math.sin((t-s)*pi2/period)*0.5+1;
+	
+};
+
+function getBackIn (t,amount)
+{
+		return t*t*((amount+1)*t-amount);
+}
+
+function getBackOut(t,amount) 
+{
+		return (--t*t*((amount+1)*t + amount) + 1);
+}
+
+
+class Ease 
+{
+	static Linear(progress) 
+	{
+	  return progress;
+	}
+  
+	static InQuad(progress) 
+	{
+	  return getPowIn(progress, 2);
+	}
+  
+	static OutQuad(progress) 
+	{
+	  return getPowOut(progress, 2);
+	}
+  
+	static InOutQuad(progress) 
+	{
+	  return getPowInOut(progress, 2);
+	}
+  
+	static SineIn(t) 
+	{
+	  return 1 - Math.cos(t * Math.PI / 2);
+	}
+  
+	static SineOut(t) 
+	{
+	  return Math.sin(t * Math.PI / 2);
+	}
+  
+	static SineInOut(t) 
+	{
+	  return -0.5 * (Math.cos(Math.PI * t) - 1);
+	}
+  
+	static BounceIn(t) 
+	{
+	  return 1 - Ease.BounceOut(1 - t);
+	}
+  
+	static BounceOut(t) 
+	{
+	  if (t < 1 / 2.75) 
+	  {
+		return 7.5625 * t * t;
+	  } else if (t < 2 / 2.75)
+	   {
+		return 7.5625 * (t -= 1.5 / 2.75) * t + 0.75;
+	  } else if (t < 2.5 / 2.75)
+	  {
+		return 7.5625 * (t -= 2.25 / 2.75) * t + 0.9375;
+	  } else 
+	  {
+		return 7.5625 * (t -= 2.625 / 2.75) * t + 0.984375;
+	  }
+	}
+  
+	static BounceInOut(t) 
+	{
+	  if (t < 0.5) return Ease.BounceIn(t * 2) * 0.5;
+	  return Ease.BounceOut(t * 2 - 1) * 0.5 + 0.5;
+	}
+  
+	static ElasticIn(t) 
+	{
+	  return getElasticIn(t, 1, 0.3);
+	}
+  
+	static ElasticOut(t) 
+	{
+	  return getElasticOut(t, 1, 0.3);
+	}
+  
+	static ElasticInOut(t) 
+	{
+	  return getElasticInOut(t, 1, 0.3 * 1.5);
+	}
+  
+	static BackIn(t) 
+	{
+	  return getBackIn(t, 1.7);
+	}
+  
+	static BackOut(t) 
+	{
+	  return getBackOut(t, 1.7);
+	}
+  
+	static BackInOut(t)
+	 {
+	  return getBackInOut(t, 1.7);
+	}
+  
+	static CircIn(t) 
+	{
+	  return -(Math.sqrt(1 - t * t) - 1);
+	}
+  
+	static CircOut(t) 
+	{
+	  return Math.sqrt(1 - (--t) * t);
+	}
+  
+	static CircInOut(t)
+	 {
+	  if ((t *= 2) < 1) return -0.5 * (Math.sqrt(1 - t * t) - 1);
+	  return 0.5 * (Math.sqrt(1 - (t -= 2) * t) + 1);
+	}
+  
+  }

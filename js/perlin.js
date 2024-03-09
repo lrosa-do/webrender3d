@@ -182,7 +182,7 @@ class Grad
         let v = this.fade(y);
         let w = this.fade(z);
 
-        return this.lerp(this.lerp(this.lerp(n000, n100, u),lerp(n001, n101, u), w),this.lerp(this.lerp(n010, n110, u),lerp(n011, n111, u), w), v);
+        return this.lerp(this.lerp(this.lerp(n000, n100, u),this.lerp(n001, n101, u), w),this.lerp(this.lerp(n010, n110, u),this.lerp(n011, n111, u), w), v);
 
     }
 
@@ -264,8 +264,8 @@ class Grad
             let x0 = x-i+t; 
             let y0 = y-j+t;
             let z0 = z-k+t;
-            i1 = 0, j1 = 0, k1 = 0; 
-            i2 = 0, j2 = 0, k2 = 0; 
+            let i1 = 0, j1 = 0, k1 = 0; 
+            let i2 = 0, j2 = 0, k2 = 0; 
             if(x0>=y0) 
             {
             if(y0>=z0) 
